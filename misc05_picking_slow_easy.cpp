@@ -1,6 +1,8 @@
 // Include standard headers
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
+using namespace std;
 #include <vector>
 #include <array>
 #include <stack>   
@@ -10,6 +12,7 @@
 // Include GLFW
 #include <glfw3.h>
 // Include GLM
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -23,41 +26,43 @@ using namespace glm;
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
 
-const int window_width = 1024, window_height = 768;
+const int window_width = 600, window_height = 600;
 
 typedef struct Vertex {
-	float Position[4];
-	float Color[4];
-	float Normal[3];
-	void SetPosition(float *coords) {
+	array<float, 4> Position;
+	array<float, 4> Color;
+	array<float, 3> Normal;
+	void SetPosition(float* coords) {
 		Position[0] = coords[0];
 		Position[1] = coords[1];
 		Position[2] = coords[2];
 		Position[3] = 1.0;
 	}
-	void SetColor(float *color) {
+	void SetColor(float* color) {
 		Color[0] = color[0];
 		Color[1] = color[1];
 		Color[2] = color[2];
 		Color[3] = color[3];
 	}
-	void SetNormal(float *coords) {
+	void SetNormal(float* coords) {
 		Normal[0] = coords[0];
 		Normal[1] = coords[1];
 		Normal[2] = coords[2];
 	}
-};
+}Vertex;
 typedef struct campos {
 	float x, y, z;
 };
-
+bool flagc = false;
 campos camp;
 float LightIDUni;
 // function prototypes
 int initWindow(void);
 void initOpenGL(void);
 void loadObject(char*, glm::vec4, Vertex * &, GLushort* &, int);
-void createVAOs(Vertex[], GLushort[], int);
+int drawObject(const int vertID, const vector<Vertex>& objVerts,
+	const vector<unsigned short>& objIdcs, bool triang);
+void createVAOs(vector<Vertex>&, vector<unsigned short>&, int);
 void createObjects(void);
 void pickObject(void);
 void renderScene(void);
@@ -65,6 +70,7 @@ void cleanup(void);
 static void keyCallback(GLFWwindow*, int, int, int, int);
 static void mouseCallback(GLFWwindow*, int, int, int);
 void drawgrid(void);
+void genPoints(void);
 void changecamera(int);
 void translate(Vertex[], int);
 vec3 calcvecf(float, vec4);
@@ -105,11 +111,12 @@ bool animation = false;
 GLfloat phi = 0.0;
 
 //for grid variables
-Vertex vx[44], vy[44];
-std::vector<Vertex> vcx, vcy;
-//Vertex vcx[44], vcy[44];
-float whitecolor[4] = { 1.0, 1.0, 1.0, 1.0 };
-float greencolor[4] = { 0.0, 1.0, 0.0, 1.0 };
+std::vector<Vertex> vg,vc;
+std::vector<Vertex> controlPoints;
+vector<unsigned short> gridIndices,controlIndices, controlPntInd;
+
+vector<Vertex> baseVerts;
+vector<GLushort> baseIdcs;
 
 //for camera
 
@@ -119,7 +126,10 @@ campos temp = { 20.0, 20.0, 20.0 };
 
 
 float LightIDUniami;
-void loadObject(char* file, glm::vec4 color, Vertex * &out_Vertices, GLushort* &out_Indices, int ObjectId)
+void loadObject(char* file, glm::vec4 color,
+	//Vertex * &out_Vertices,
+	vector<Vertex>& outVertices,
+	vector<GLushort>& outIndices, int ObjectId)
 {
 	// Read our .obj file
 	std::vector<glm::vec3> vertices;
@@ -137,32 +147,28 @@ void loadObject(char* file, glm::vec4 color, Vertex * &out_Vertices, GLushort* &
 	const size_t idxCount = indices.size();
 
 	// populate output arrays
-	out_Vertices = new Vertex[vertCount];
-
+	outVertices.resize(vertCount);// = new Vertex[vertCount];
 	for (int i = 0; i < vertCount; i++) {
-
-		out_Vertices[i].SetPosition(&indexed_vertices[i].x);
-		out_Vertices[i].SetNormal(&indexed_normals[i].x);
-		out_Vertices[i].SetColor(&color[0]);
-
+		outVertices[i].SetPosition(&indexed_vertices[i].x);
+		outVertices[i].SetNormal(&indexed_normals[i].x);
+		outVertices[i].SetColor(&color[0]);
 	}
-	out_Indices = new GLushort[idxCount];
+	outIndices.resize(idxCount); // = new GLushort[idxCount];
 	for (int i = 0; i < idxCount; i++) {
-		out_Indices[i] = indices[i];
+		outIndices[i] = indices[i];
 	}
 
 	// set global variables!!
 	NumIndices[ObjectId] = idxCount;
-	VertexBufferSize[ObjectId] = sizeof(out_Vertices[0]) * vertCount;
+	VertexBufferSize[ObjectId] = sizeof(outVertices[0]) * vertCount;
 	IndexBufferSize[ObjectId] = sizeof(GLushort) * idxCount;
 }
-
 
 
 void createObjects(void)
 {
 	//-- COORDINATE AXES --//
-	Vertex CoordVerts[] =
+	vector<Vertex> CoordVerts =
 	{
 		{ { 0.0, 0.0, 0.0, 1.0 },{ 1.0, 0.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 } },
 		{ { 10.0, 0.0, 0.0, 1.0 },{ 1.0, 0.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 } },
@@ -171,42 +177,49 @@ void createObjects(void)
 		{ { 0.0, 0.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0, 1.0 },{ 0.0, 0.0, 1.0 } },
 		{ { 0.0, 0.0, 10.0, 1.0 },{ 0.0, 0.0, 1.0, 1.0 },{ 0.0, 0.0, 1.0 } },
 	};
+	VertexBufferSize[0] = CoordVerts.size() * sizeof(CoordVerts[0]);	
+	vector<unsigned short> CoordIndices;// = {0, 1, 2, 3, 4, 5};
+	createVAOs(CoordVerts, CoordIndices, 0);
 
-	VertexBufferSize[0] = sizeof(CoordVerts);	// ATTN: this needs to be done for each hand-made object with the ObjectID (subscript)
-	createVAOs(CoordVerts, NULL, 0);
-
-	//-- GRID --//
-	VertexBufferSize[1] = sizeof(vx);
-	createVAOs(vx, NULL, 1);
-	VertexBufferSize[2] = sizeof(vy);
-	createVAOs(vy, NULL, 2);
-
-	//createVAOs(vcx, NULL, 4);
-	//createVAOs(vcy, NULL, 4);
-	// ATTN: create your grid vertices here!
-
-	//-- .OBJs --//
-
-	// ATTN: load your models here
-	Vertex* Verts;
+	
 	
 
-	GLushort* Idcs_torus;
-	loadObject("modules/aru/AaruKalaikannan_meshlab.obj", glm::vec4(1.0, 0.80, 0.60, 1.0), Verts, Idcs_torus, 3);
-	//loadObject("modules/sainath/poorna1.obj", glm::vec4(1.0, 0.80, 0.60, 1.0), Verts_torus, Idcs_torus, 3);
+	//-- GRID --//
+	VertexBufferSize[1] = vg.size()*sizeof(vg[0]);
+	createVAOs(vg, gridIndices, 1);
+	
+		// ATTN: load your models here
 
-	createVAOs(Verts, Idcs_torus, 3);
+	string baseFile = "modules/aru/AaruKalaikannan_meshlab.obj";
+	char* fname = (char*)baseFile.c_str();
+	loadObject(fname, glm::vec4(1.0, 0.80, 0.60, 1.0), baseVerts, baseIdcs, 2);
+	createVAOs(baseVerts, baseIdcs, 2);
+	
 
-	VertexBufferSize[4] = vcx.size();
-	createVAOs(vcx, NULL, 4);
+	VertexBufferSize[3] = vc.size() * sizeof(vc[0]);
+	createVAOs(vc, controlIndices, 3);
 
-	VertexBufferSize[5] = vcy.size();
-	createVAOs(vcy, NULL, 5);
+	VertexBufferSize[4] = controlPoints.size() * sizeof(controlPoints[0]);
+	createVAOs(controlPoints, controlPntInd, 4);
+
+	
 
 }
 
-float x = 0, y = 0, z = 0;
-glm::vec4 coordinates = glm::vec4(0, 0, 0, 1);
+int drawObject(const int vertID, const vector<Vertex>& objVerts,
+	const vector<unsigned short>& objIdcs, bool triang = true)
+{
+	glBindVertexArray(VertexArrayId[vertID]);	// draw object
+	glBindBuffer(GL_ARRAY_BUFFER, VertexBufferId[vertID]);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, objIdcs.size() * sizeof(Vertex), &objVerts[0]);
+	if (triang)
+		glDrawElements(GL_TRIANGLES, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
+	else
+		glDrawElements(GL_LINE, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
+
+	return 0;
+}
+
 bool flags = true;
 void renderScene(void)
 {
@@ -237,13 +250,18 @@ void renderScene(void)
 		glDrawArrays(GL_LINES, 0, 6);
 
 		glBindVertexArray(VertexArrayId[1]);
-		glDrawArrays(GL_LINES, 0, 44);			//grid1
+		glDrawArrays(GL_LINES, 0, vg.size());
+		if(flagc){
+		glBindVertexArray(VertexArrayId[3]);
+		glDrawArrays(GL_LINES, 0, vc.size());
+			glPointSize(5.0);
+		glBindVertexArray(VertexArrayId[4]);
+		glDrawArrays(GL_POINTS, 0, controlPoints.size());
 
-		glBindVertexArray(VertexArrayId[2]);
-		glDrawArrays(GL_LINES, 0, 44);		//grid2
-		if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-		{
-
+		}
+		//glDrawArrays(GL_POINTS, 0, vc.size());
+		
+		
 
 			if (fvertical)
 			{
@@ -253,7 +271,7 @@ void renderScene(void)
 			{
 				changecamera(flagcountsides);
 			}
-		}
+		
 		if (flagr)
 		{
 			temp = { 20.0, 20.0, 20.0 };
@@ -267,22 +285,15 @@ void renderScene(void)
 			flagcountsides = 0;
 			flagr = !flagr;
 		}
-
+			
 		glm::mat4 trans;
 		trans = glm::scale(trans, glm::vec3(40.0, 40.0, 40.0));
 		ModelMatrix = trans;
 
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
 		if (flags) {
-			glBindVertexArray(VertexArrayId[3]);
-			glDrawElements(GL_TRIANGLES, NumIndices[3], GL_UNSIGNED_SHORT, (void*)0);
+			drawObject(2, baseVerts, baseIdcs);
 		}
-
-		glBindVertexArray(VertexArrayId[4]);
-		glDrawElements(GL_POINTS, NumIndices[4], GL_UNSIGNED_SHORT, (void*)0);
-
-		glBindVertexArray(VertexArrayId[5]);	
-		glDrawElements(GL_POINTS, NumIndices[5], GL_UNSIGNED_SHORT, (void*)0);
 
 		glBindVertexArray(0);
 
@@ -440,13 +451,13 @@ void initOpenGL(void)
 	createObjects();
 }
 
-void createVAOs(std::vector<Vertex>& Vertices, unsigned short Indices[], int ObjectId) {
+void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, int ObjectId) {
 	
 	GLenum ErrorCheckValue = glGetError();
-
 	const size_t VertexSize = sizeof(Vertices[0]);
 	const size_t RgbOffset = sizeof(Vertices[0].Position);
 	const size_t Normaloffset = sizeof(Vertices[0].Color) + RgbOffset;
+	cout << " Norm Offset " << Normaloffset << endl;
 
 	// Create Vertex Array Object
 	glGenVertexArrays(1, &VertexArrayId[ObjectId]);	//
@@ -455,14 +466,14 @@ void createVAOs(std::vector<Vertex>& Vertices, unsigned short Indices[], int Obj
 													// Create Buffer for vertex data
 	glGenBuffers(1, &VertexBufferId[ObjectId]);
 	glBindBuffer(GL_ARRAY_BUFFER, VertexBufferId[ObjectId]);
-	
 	glBufferData(GL_ARRAY_BUFFER, VertexBufferSize[ObjectId], &Vertices[0], GL_STATIC_DRAW);
 
 	// Create Buffer for indices
-	if (Indices != NULL) {
+	//if (Indices != NULL) {
+	if (!Indices.empty()) {
 		glGenBuffers(1, &IndexBufferId[ObjectId]);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferId[ObjectId]);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, IndexBufferSize[ObjectId], Indices, GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, IndexBufferSize[ObjectId], &Indices[0], GL_STATIC_DRAW);
 	}
 
 	// Assign vertex attributes
@@ -516,22 +527,23 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 		case GLFW_KEY_F:
 			flags = !flags;
 			break;
+		case GLFW_KEY_C:
+			flagc = !flagc;
+			break;
 
 
 		case GLFW_KEY_UP:
 
 			fvertical = !fvertical;
-			fsidespen = false;
-			fverticalpen = true;
+			
 
-			if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-			{
+			
 				flagcountup++;
 				if (flagcountup == 16)
 				{
 					flagcountup = 0;
 				}
-			}
+			
 
 
 			break;
@@ -540,14 +552,13 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			fsides = !fsides;
 
 
-			if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-			{
+			
 				flagcountsides++;
 				if (flagcountsides == 16)
 				{
 					flagcountsides = 0;
 				}
-			}
+			
 
 
 			break;
@@ -556,15 +567,12 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			fsides = !fsides;
 
 
-			if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-			{
 				flagcountsides--;
 				if (flagcountsides == 16)
 				{
 					flagcountsides = 0;
 				}
-			}
-
+			
 
 			break;
 		case GLFW_KEY_DOWN:
@@ -572,14 +580,13 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 
 			fvertical = !fvertical;
 
-			if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
-			{
+			
 				flagcountup--;
 				if (flagcountup == 16)
 				{
 					flagcountup = 0;
 				}
-			}
+			
 
 			break;
 
@@ -616,146 +623,137 @@ static void mouseCallback(GLFWwindow* window, int button, int action, int mods)
 }
 void drawgrid(void)
 {
-	GLint i = 10, j = 5, k = 0;
-	bool up = false;
-	bool down = true;
-	int count = 0;
-	float a[3], b[3];
-	for (i = 20; i >= 0;)
-	{
-		if (down)
-		{
-			for (j = 20; j >= 0; j = j - 20)
-			{
-				a[0] = i - 10;
+	int width = 21;
+	int height = 21;
+	int row_ind = 0;
 
-				a[2] = j - 10;
-				a[1] = 0.0;
-				b[1] = 0.0;
-				b[2] = i - 10;
+	size_t ind = 0;
+	// Generate points to draw grid
+	for (int i = -10; i <= 10; i++) {
+		array<float, 4> color = { 1.0, 1.0, 1.0, 1.0 };
+		array<float, 3> normal = { 0.0, 0.0, 1.0 };
+		array<float, 4> position = { -10.0, 0.0, float(i), 1.0f };
+		Vertex tmp;
+		tmp.Position = position;
+		tmp.Color = color;
+		tmp.Normal = normal;
+		vg.push_back(tmp);
+		gridIndices.push_back(ind);
+		ind++;
 
-
-				b[0] = j - 10;
-
-				vx[k].SetPosition(a);
-				vy[k].SetPosition(b);
-				vx[k].SetColor(whitecolor);
-				vy[k].SetColor(whitecolor);
-				k++;
-
-				if (j == 0)
-				{
-					up = !up;
-					down = !down;
-				}
-			}
-			i--;
-		}
-
-		else if (up)
-		{
-			for (j = 0; j <= 20; j = j + 20)
-			{
-				a[0] = i - 10;
-
-				a[2] = j - 10;
-				a[1] = 0.0;
-				b[1] = 0.0;
-				b[2] = i - 10;
-
-				b[0] = j - 10;
-
-				vx[k].SetPosition(a);
-				vy[k].SetPosition(b);
-				vx[k].SetColor(whitecolor);
-				vy[k].SetColor(whitecolor);
-				k++;
-				//printf("X:%f::Y:%f\n", a[0], a[2]);
-				//printf("X:%f::Y:%f\n", b[0], b[2]);
-				if (j == 20)
-				{
-					up = !up;
-					down = !down;
-				}
-			}
-			i--;
-		}
+		position = { 10.0, 0.0, float(i), 1.0f };
+		Vertex tmp1;
+		tmp1.Color = color;
+		tmp1.Normal = normal;
+		tmp1.Position = position;
+		vg.push_back(tmp1);
+		gridIndices.push_back(ind);
+		ind++;
 	}
+
+	for (int i = -10; i <= 10; i++) {
+		array<float, 4> color = { 1.0, 1.0, 1.0, 1.0 };
+		array<float, 3> normal = { 0.0, 0.0, 1.0 };
+		array<float, 4> position = { float(i), 0.0, -10.0, 1.0f };
+		Vertex tmp;
+		tmp.Position = position;
+		tmp.Color = color;
+		tmp.Normal = normal;
+		vg.push_back(tmp);
+		gridIndices.push_back(ind);
+		ind++;
+
+		position = { float(i), 0.0, 10.0, 1.0f };
+		Vertex tmp1;
+		tmp1.Color = color;
+		tmp1.Normal = normal;
+		tmp1.Position = position;
+		vg.push_back(tmp1);
+		gridIndices.push_back(ind);
+		ind++;
+	}
+
+	cout << "Grid Size " << vg.size() << endl;
+	
 }
 
 void drawcontrol(void)
 {
-GLint i = 10, j = 5, k = 0;
-bool up = false;
-bool down = true;
-int count = 0;
-float a[3], b[3];
-Vertex v1, v2;
-for (i = 20; i >= 0;)
+	int width = 21;
+	int height = 21;
+	int row_ind = 0;
+
+	size_t ind = 0;
+	// Generate points to draw grid
+	for (int i = -10; i <= 10; i++) {
+		array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
+		array<float, 3> normal = { 0.0, 0.0, 1.0 };
+		array<float, 4> position = { -10.0, float(i), 0.0, 1.0f };
+		Vertex tmp;
+		tmp.Position = position;
+		tmp.Color = color;
+		tmp.Normal = normal;
+		vc.push_back(tmp);
+		controlIndices.push_back(ind);
+		ind++;
+
+		position = { 10.0, float(i), 0.0, 1.0f };
+		Vertex tmp1;
+		tmp1.Color = color;
+		tmp1.Normal = normal;
+		tmp1.Position = position;
+		vc.push_back(tmp1);
+		controlIndices.push_back(ind);
+		ind++;
+	}
+	for (int i = -10; i <= 10; i++) {
+		array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
+		array<float, 3> normal = { 0.0, 0.0, 1.0 };
+		array<float, 4> position = { float(i), -10.0, 0.0, 1.0f };
+		Vertex tmp;
+		tmp.Position = position;
+		tmp.Color = color;
+		tmp.Normal = normal;
+		vc.push_back(tmp);
+		controlIndices.push_back(ind);
+		ind++;
+
+		position = { float(i), 10.0, 0.0, 1.0f };
+		Vertex tmp1;
+		tmp1.Color = color;
+		tmp1.Normal = normal;
+		tmp1.Position = position;
+		vc.push_back(tmp1);
+		controlIndices.push_back(ind);
+		ind++;
+	}
+
+	cout << "control Size " << vc.size() << endl;
+}
+
+void genPoints()
+
 {
-if (down)
-{
-for (j = 20; j >= 0; j = j - 20)
-{
-	v1.Position[0] = i - 10;
+	size_t ind = 0;
+	// Generate points to draw grid
+	for (int i = -10; i <= 10; i++) {
+		for (int j = -10; j <= 10; j++)
+		{
+			array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
+			array<float, 3> normal = { 0.0, 0.0, 1.0 };
+			array<float, 4> position = { float(i), float(j), 0.0, 1.0f };
+			Vertex tmp;
+			tmp.Position = position;
+			tmp.Color = color;
+			tmp.Normal = normal;
+			controlPoints.push_back(tmp);
+			controlPntInd.push_back(ind);
+			ind++;
 
-	v1.Position[1] = j - 10;
-	v1.Position[2] = 0.0;
-	v1.Position[3] = 1.0;
-	v1.SetColor(greencolor);
-	v2.Position[2] = 0.0;
-	v2.Position[1] = i - 10;
+		}
 
-
-	v2.Position[0] = j - 10;
-	v2.Position[3] = 1.0;
-	v2.SetColor(greencolor);
-
-vcx.push_back(v1);
-vcy.push_back(v2);
-k++;
-
-if (j == 0)
-{
-up = !up;
-down = !down;
+	}
 }
-}
-i--;
-}
-
-else if (up)
-{
-for (j = 0; j <= 20; j = j + 20)
-{
-	v1.Position[0] = i - 10;
-
-	v1.Position[1] = j - 10;
-	v1.Position[2] = 0.0;
-	v1.SetColor(whitecolor);
-	v2.Position[2] = 0.0;
-	v2.Position[1] = i - 10;
-	v2.Position[0] = j - 10;
-	v2.SetColor(whitecolor);
-
-	vcx.push_back(v1);
-	vcy.push_back(v2);
-
-k++;
-//printf("X:%f::Y:%f\n", a[0], a[2]);
-//printf("X:%f::Y:%f\n", b[0], b[2]);
-if (j == 20)
-{
-up = !up;
-down = !down;
-}
-}
-i--;
-}
-}
-}
-
-
 void changecamera(int i)
 {
 	float r = 20 * 1.732;
@@ -787,6 +785,7 @@ void changecamera(int i)
 		);
 		temp.x = camp.x;
 		temp.z = camp.z;
+		
 
 	}
 
@@ -802,30 +801,12 @@ int main(void)
 		return errorCode;
 	drawgrid();
 	drawcontrol();
-	printf("before initiazing opengl\n");
+	genPoints();
 	// initialize OpenGL pipeline
 	initOpenGL();
-	printf("after initiazing opengl\n");
-
-	// For speed computation
-	double lastTime = glfwGetTime();
-	int nbFrames = 0;
-	do {
-		//// Measure speed
-		//double currentTime = glfwGetTime();
-		//nbFrames++;
-		//if (currentTime - lastTime >= 1.0){ // If last prinf() was more than 1sec ago
-		//	// printf and reset
-		//	printf("%f ms/frame\n", 1000.0 / double(nbFrames));
-		//	nbFrames = 0;c
-		//	lastTime += 1.0;
-		//}
-
-		if (animation) {
-			phi += 0.01;
-			if (phi > 360)
-				phi -= 360;
-		}
+	
+do {
+		
 
 		// DRAWING POINTS
 		renderScene();
