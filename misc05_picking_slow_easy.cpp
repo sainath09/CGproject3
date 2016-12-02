@@ -440,7 +440,7 @@ void initOpenGL(void)
 	createObjects();
 }
 
-void createVAOs(std::vector<Vertex> Vertices, unsigned short Indices[], int ObjectId) {
+void createVAOs(std::vector<Vertex>& Vertices, unsigned short Indices[], int ObjectId) {
 	
 	GLenum ErrorCheckValue = glGetError();
 
@@ -455,7 +455,8 @@ void createVAOs(std::vector<Vertex> Vertices, unsigned short Indices[], int Obje
 													// Create Buffer for vertex data
 	glGenBuffers(1, &VertexBufferId[ObjectId]);
 	glBindBuffer(GL_ARRAY_BUFFER, VertexBufferId[ObjectId]);
-	glBufferData(GL_ARRAY_BUFFER, VertexBufferSize[ObjectId], Vertices, GL_STATIC_DRAW);
+	
+	glBufferData(GL_ARRAY_BUFFER, VertexBufferSize[ObjectId], &Vertices[0], GL_STATIC_DRAW);
 
 	// Create Buffer for indices
 	if (Indices != NULL) {
