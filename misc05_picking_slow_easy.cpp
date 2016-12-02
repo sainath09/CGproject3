@@ -106,8 +106,10 @@ GLfloat phi = 0.0;
 
 //for grid variables
 Vertex vx[44], vy[44];
+std::vector<Vertex> vcx, vcy;
 //Vertex vcx[44], vcy[44];
 float whitecolor[4] = { 1.0, 1.0, 1.0, 1.0 };
+float greencolor[4] = { 0.0, 1.0, 0.0, 1.0 };
 
 //for camera
 
@@ -186,19 +188,20 @@ void createObjects(void)
 	//-- .OBJs --//
 
 	// ATTN: load your models here
-	Vertex* Verts_torus;
-	Vertex* Verts_cylinder1;
-	Vertex* Verts_rectarm;
-	Vertex* Verts_cylinder2;
-	Vertex* Verts_arm2;
-	Vertex* Verts_pen;
-	Vertex* Verts_penb;
+	Vertex* Verts;
+	
 
 	GLushort* Idcs_torus;
-	loadObject("modules/aru/AaruKalaikannan_meshlab.obj", glm::vec4(1.0, 0.80, 0.60, 1.0), Verts_torus, Idcs_torus, 3);
+	loadObject("modules/aru/AaruKalaikannan_meshlab.obj", glm::vec4(1.0, 0.80, 0.60, 1.0), Verts, Idcs_torus, 3);
 	//loadObject("modules/sainath/poorna1.obj", glm::vec4(1.0, 0.80, 0.60, 1.0), Verts_torus, Idcs_torus, 3);
 
-	createVAOs(Verts_torus, Idcs_torus, 3);
+	createVAOs(Verts, Idcs_torus, 3);
+
+	VertexBufferSize[4] = vcx.size();
+	createVAOs(vcx, NULL, 4);
+
+	VertexBufferSize[5] = vcy.size();
+	createVAOs(vcy, NULL, 5);
 
 }
 
@@ -271,9 +274,15 @@ void renderScene(void)
 
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
 		if (flags) {
-			glBindVertexArray(VertexArrayId[3]);	//face
+			glBindVertexArray(VertexArrayId[3]);
 			glDrawElements(GL_TRIANGLES, NumIndices[3], GL_UNSIGNED_SHORT, (void*)0);
 		}
+
+		glBindVertexArray(VertexArrayId[4]);
+		glDrawElements(GL_POINTS, NumIndices[4], GL_UNSIGNED_SHORT, (void*)0);
+
+		glBindVertexArray(VertexArrayId[5]);	
+		glDrawElements(GL_POINTS, NumIndices[5], GL_UNSIGNED_SHORT, (void*)0);
 
 		glBindVertexArray(0);
 
@@ -431,7 +440,7 @@ void initOpenGL(void)
 	createObjects();
 }
 
-void createVAOs(Vertex Vertices[], unsigned short Indices[], int ObjectId) {
+void createVAOs(std::vector<Vertex> Vertices, unsigned short Indices[], int ObjectId) {
 	
 	GLenum ErrorCheckValue = glGetError();
 
@@ -673,33 +682,36 @@ void drawgrid(void)
 	}
 }
 
-/*void drawcontrol(void)
+void drawcontrol(void)
 {
 GLint i = 10, j = 5, k = 0;
 bool up = false;
 bool down = true;
 int count = 0;
 float a[3], b[3];
+Vertex v1, v2;
 for (i = 20; i >= 0;)
 {
 if (down)
 {
 for (j = 20; j >= 0; j = j - 20)
 {
-a[0] = i - 10;
+	v1.Position[0] = i - 10;
 
-a[1] = j - 10;
-a[2] = 0.0;
-b[2] = 0.0;
-b[1] = i - 10;
+	v1.Position[1] = j - 10;
+	v1.Position[2] = 0.0;
+	v1.Position[3] = 1.0;
+	v1.SetColor(greencolor);
+	v2.Position[2] = 0.0;
+	v2.Position[1] = i - 10;
 
 
-b[0] = j - 10;
+	v2.Position[0] = j - 10;
+	v2.Position[3] = 1.0;
+	v2.SetColor(greencolor);
 
-vcx[k].SetPosition(a);
-vcy[k].SetPosition(b);
-vcx[k].SetColor(whitecolor);
-vcy[k].SetColor(whitecolor);
+vcx.push_back(v1);
+vcy.push_back(v2);
 k++;
 
 if (j == 0)
@@ -715,19 +727,19 @@ else if (up)
 {
 for (j = 0; j <= 20; j = j + 20)
 {
-a[0] = i - 10;
+	v1.Position[0] = i - 10;
 
-a[1] = j - 10;
-a[2] = 0.0;
-b[2] = 0.0;
-b[1] = i - 10;
+	v1.Position[1] = j - 10;
+	v1.Position[2] = 0.0;
+	v1.SetColor(whitecolor);
+	v2.Position[2] = 0.0;
+	v2.Position[1] = i - 10;
+	v2.Position[0] = j - 10;
+	v2.SetColor(whitecolor);
 
-b[0] = j - 10;
+	vcx.push_back(v1);
+	vcy.push_back(v2);
 
-vcx[k].SetPosition(a);
-vcy[k].SetPosition(b);
-vcx[k].SetColor(whitecolor);
-vcy[k].SetColor(whitecolor);
 k++;
 //printf("X:%f::Y:%f\n", a[0], a[2]);
 //printf("X:%f::Y:%f\n", b[0], b[2]);
@@ -740,7 +752,9 @@ down = !down;
 i--;
 }
 }
-}*/
+}
+
+
 void changecamera(int i)
 {
 	float r = 20 * 1.732;
@@ -786,6 +800,7 @@ int main(void)
 	if (errorCode != 0)
 		return errorCode;
 	drawgrid();
+	drawcontrol();
 	printf("before initiazing opengl\n");
 	// initialize OpenGL pipeline
 	initOpenGL();
