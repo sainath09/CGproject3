@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+
 using namespace std;
 #include <vector>
 #include <array>
@@ -9,8 +10,12 @@ using namespace std;
 #include <sstream>
 // Include GLEW
 #include <GL/glew.h>
+#include<GL/glut.h>
+#include<common/tga.h>
+
 // Include GLFW
 #include <glfw3.h>
+#include<common/SOIL.h>
 // Include GLM
 
 #include <glm/glm.hpp>
@@ -32,6 +37,7 @@ typedef struct Vertex {
 	array<float, 4> Position;
 	array<float, 4> Color;
 	array<float, 3> Normal;
+	array<float, 2> textureCords;
 	void SetPosition(float* coords) {
 		Position[0] = coords[0];
 		Position[1] = coords[1];
@@ -48,6 +54,12 @@ typedef struct Vertex {
 		Normal[0] = coords[0];
 		Normal[1] = coords[1];
 		Normal[2] = coords[2];
+	}
+	void setTexture(float* coords)
+	{
+		textureCords[0] = coords[0];
+		textureCords[1] = coords[1];
+
 	}
 }Vertex;
 typedef struct campos {
@@ -71,6 +83,7 @@ static void keyCallback(GLFWwindow*, int, int, int, int);
 static void mouseCallback(GLFWwindow*, int, int, int);
 void drawgrid(void);
 void genPoints(void);
+void genTexture(void);
 void changecamera(int);
 void translate(Vertex[], int);
 vec3 calcvecf(float, vec4);
@@ -102,6 +115,9 @@ GLuint ProjMatrixID;
 GLuint PickingMatrixID;
 GLuint pickingColorID;
 GLuint LightID, LightID1, LightID2;
+GLuint texture;
+GLuint textureID;
+long width, height;
 
 GLint gX = 0.0;
 GLint gZ = 0.0;
@@ -177,24 +193,24 @@ void createObjects(void)
 		{ { 0.0, 0.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0, 1.0 },{ 0.0, 0.0, 1.0 } },
 		{ { 0.0, 0.0, 10.0, 1.0 },{ 0.0, 0.0, 1.0, 1.0 },{ 0.0, 0.0, 1.0 } },
 	};
-	VertexBufferSize[0] = CoordVerts.size() * sizeof(CoordVerts[0]);	
+	VertexBufferSize[0] = CoordVerts.size() * sizeof(CoordVerts[0]);
 	vector<unsigned short> CoordIndices;// = {0, 1, 2, 3, 4, 5};
 	createVAOs(CoordVerts, CoordIndices, 0);
 
-	
-	
+
+
 
 	//-- GRID --//
-	VertexBufferSize[1] = vg.size()*sizeof(vg[0]);
+	VertexBufferSize[1] = vg.size() * sizeof(vg[0]);
 	createVAOs(vg, gridIndices, 1);
-	
-		// ATTN: load your models here
+
+	// ATTN: load your models here
 
 	string baseFile = "modules/aru/AaruKalaikannan_meshlab.obj";
 	char* fname = (char*)baseFile.c_str();
 	loadObject(fname, glm::vec4(1.0, 0.80, 0.60, 1.0), baseVerts, baseIdcs, 2);
 	createVAOs(baseVerts, baseIdcs, 2);
-	
+
 
 	VertexBufferSize[3] = vc.size() * sizeof(vc[0]);
 	createVAOs(vc, controlIndices, 3);
@@ -202,8 +218,23 @@ void createObjects(void)
 	VertexBufferSize[4] = controlPoints.size() * sizeof(controlPoints[0]);
 	createVAOs(controlPoints, controlPntInd, 4);
 
+	texture = load_texture_TGA("modules/aru/akalai.tga", &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+	cout << texture << endl;
 	
 
+}
+void genTexture(){
+	int width, height;
+	unsigned char* image = SOIL_load_image("modules/aru/akalai.tga", &width, &height, 0, SOIL_LOAD_RGB);
+	glGenTextures(1, &texture);
+
+	glBindTexture(GL_TEXTURE_2D, texture);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	SOIL_free_image_data(image);
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 int drawObject(const int vertID, const vector<Vertex>& objVerts,
@@ -221,6 +252,10 @@ int drawObject(const int vertID, const vector<Vertex>& objVerts,
 }
 
 bool flags = true;
+
+
+//unsigned char* image = SOIL_load_image("modules/aru/akalai.tga", &width, &height, 0, SOIL_LOAD_RGB);
+
 void renderScene(void)
 {
 	//ATTN: DRAW YOUR SCENE HERE. MODIFY/ADAPT WHERE NECESSARY!
@@ -239,25 +274,37 @@ void renderScene(void)
 		glm::mat4x4 ModelMatrix = glm::mat4(1.0);
 		//glm::mat4 MVP = gProjectionMatrix * gViewMatrix * ModelMatrix;
 
-
+		glUniform1f(LightIDUniami, 0.5);
 		glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
 		//glUniform3f(LightID1, lightPos1.x, lightPos1.y, lightPos1.z);
 		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &gViewMatrix[0][0]);
 		glUniformMatrix4fv(ProjMatrixID, 1, GL_FALSE, &gProjectionMatrix[0][0]);
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
-
+		
 		glBindVertexArray(VertexArrayId[0]);	// draw CoordAxes
 		glDrawArrays(GL_LINES, 0, 6);
-
+		
+		
 		glBindVertexArray(VertexArrayId[1]);
 		glDrawArrays(GL_LINES, 0, vg.size());
+		
 		if(flagc){
-		glBindVertexArray(VertexArrayId[3]);
-		glDrawArrays(GL_LINES, 0, vc.size());
-			glPointSize(5.0);
-		glBindVertexArray(VertexArrayId[4]);
-		glDrawArrays(GL_POINTS, 0, controlPoints.size());
 
+			glUniform1f(LightIDUniami, 0.0);
+		glBindVertexArray(VertexArrayId[3]);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, vc.size());
+		glPointSize(5.0);
+
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glUniform1i(textureID, 0);
+		
+		glBindVertexArray(VertexArrayId[4]);
+		//glDrawElements(GL_TRIANGLES_ADJACENCY, controlPoints.size(), GL_UNSIGNED_SHORT, (void*)0);
+		glDrawArrays(GL_TRIANGLE_STRIP, 0, controlPoints.size());
+
+		glBindVertexArray(0);
+		glUniform1f(LightIDUniami, 0.5);
 		}
 		//glDrawArrays(GL_POINTS, 0, vc.size());
 		
@@ -447,7 +494,7 @@ void initOpenGL(void)
 
 	LightIDUni = glGetUniformLocation(programID, "LightPower");
 	LightIDUniami = glGetUniformLocation(programID, "ambientpower");
-
+	textureID = glGetUniformLocation(programID, "faceTexture");
 	createObjects();
 }
 
@@ -457,7 +504,9 @@ void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, 
 	const size_t VertexSize = sizeof(Vertices[0]);
 	const size_t RgbOffset = sizeof(Vertices[0].Position);
 	const size_t Normaloffset = sizeof(Vertices[0].Color) + RgbOffset;
+	const size_t UVoffsset = sizeof(Vertices[0].Normal)+Normaloffset;
 	cout << " Norm Offset " << Normaloffset << endl;
+	cout << " UVoffset " << UVoffsset << endl;
 
 	// Create Vertex Array Object
 	glGenVertexArrays(1, &VertexArrayId[ObjectId]);	//
@@ -479,11 +528,14 @@ void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, 
 	// Assign vertex attributes
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, VertexSize, 0);
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, VertexSize, (GLvoid*)RgbOffset);
-	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, VertexSize, (GLvoid*)Normaloffset);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, VertexSize, (GLvoid*)Normaloffset);
+	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, VertexSize, (GLvoid*)UVoffsset);
 
 	glEnableVertexAttribArray(0);	// position
 	glEnableVertexAttribArray(1);	// color
-	glEnableVertexAttribArray(2);	// normal
+	glEnableVertexAttribArray(2);	// Normal
+	glEnableVertexAttribArray(3);	// UV
+
 
 									// Disable our Vertex Buffer Object 
 	glBindVertexArray(0);
@@ -735,22 +787,28 @@ void genPoints()
 
 {
 	size_t ind = 0;
+	float s = 0.0, t = 0.0;
 	// Generate points to draw grid
-	for (int i = -10; i <= 10; i++) {
-		for (int j = -10; j <= 10; j++)
+	for (int j = -10; j <= 10; j++) {
+		for (int i = -10; i <= 10; i++)
 		{
 			array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
 			array<float, 3> normal = { 0.0, 0.0, 1.0 };
 			array<float, 4> position = { float(i), float(j), 0.0, 1.0f };
+			array<float, 2> texture = { s,t };
+			s = s + 0.05;
 			Vertex tmp;
 			tmp.Position = position;
 			tmp.Color = color;
 			tmp.Normal = normal;
+			tmp.textureCords = texture;
 			controlPoints.push_back(tmp);
 			controlPntInd.push_back(ind);
 			ind++;
 
 		}
+		s = 0.0;
+		t = t + 0.05;
 
 	}
 }
@@ -802,6 +860,7 @@ int main(void)
 	drawgrid();
 	drawcontrol();
 	genPoints();
+	//genTexture();
 	// initialize OpenGL pipeline
 	initOpenGL();
 	

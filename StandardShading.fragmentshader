@@ -9,6 +9,8 @@ in vec3 LightDirection_cameraspace;
 in vec3 LightDirection_cameraspace1;
 in vec3 LightDirection_cameraspace2;
 
+in vec2 Texturecords;
+
 // Ouput data
 out vec3 color;
  
@@ -21,10 +23,11 @@ uniform vec3 LightPosition_worldspace1;
 uniform vec3 LightPosition_worldspace2;
 uniform float LightPower = 50.0f;
 uniform float ambientpower;
+uniform sampler2D faceTexture;
 void main(){
 
 vec3 color1;
-vec3 color2;
+
 	// Light emission properties
 	// You probably want to put them as uniforms
 	vec3 LightColor = vec3(0.5,0.5,0.5);
@@ -34,7 +37,7 @@ vec3 color2;
 	
 	// Material properties
 	vec3 MaterialDiffuseColor = vs_vertexColor.rgb;
-	vec3 MaterialAmbientColor = vec3(0.5,0.5,0.5) * MaterialDiffuseColor;
+	vec3 MaterialAmbientColor = ambientpower * MaterialDiffuseColor;
 	vec3 MaterialSpecularColor = vec3(0.3,0.3,0.3);
 
 	vec3 MaterialDiffuseColor1 = vs_vertexColor.rgb;
@@ -98,5 +101,5 @@ vec3 color2;
 
 		
 	color=color+color1;
-	
+	color=((texture(faceTexture, Texturecords)).rgb)+color;
 }
