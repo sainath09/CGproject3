@@ -26,6 +26,9 @@ using namespace glm;
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
 
+
+using namespace std;
+
 const int window_width = 600, window_height = 600;
 
 typedef struct Vertex {
@@ -628,6 +631,8 @@ void drawgrid(void)
 	int row_ind = 0;
 
 	size_t ind = 0;
+
+	cout << "Ctrl Points" << endl;
 	// Generate points to draw grid
 	for (int i = -10; i <= 10; i++) {
 		array<float, 4> color = { 1.0, 1.0, 1.0, 1.0 };
@@ -649,7 +654,10 @@ void drawgrid(void)
 		vg.push_back(tmp1);
 		gridIndices.push_back(ind);
 		ind++;
+		cout << position[0] << ", " << position[1] << ", "
+             << position[2] <<  endl;
 	}
+	cout << endl;
 
 	for (int i = -10; i <= 10; i++) {
 		array<float, 4> color = { 1.0, 1.0, 1.0, 1.0 };
