@@ -30,8 +30,9 @@ using namespace glm;
 #include <common/controls.hpp>
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
+#include <misc05_picking\gridOps.h>
 
-const int window_width = 600, window_height = 600;
+const int window_width = 1024, window_height = 768;
 
 typedef struct Vertex {
 	array<float, 4> Position;
@@ -73,7 +74,7 @@ int initWindow(void);
 void initOpenGL(void);
 void loadObject(char*, glm::vec4, Vertex * &, GLushort* &, int);
 int drawObject(const int vertID, const vector<Vertex>& objVerts,
-	const vector<unsigned short>& objIdcs, bool triang);
+	const vector<unsigned short>& objIdcs, int triang);
 void createVAOs(vector<Vertex>&, vector<unsigned short>&, int);
 void createObjects(void);
 void pickObject(void);
@@ -180,9 +181,11 @@ void loadObject(char* file, glm::vec4 color,
 	IndexBufferSize[ObjectId] = sizeof(GLushort) * idxCount;
 }
 
-
+std::vector<unsigned short> gridTriangs;
 void createObjects(void)
 {
+	
+	genGridTriangs(21, 21, gridTriangs);
 	//-- COORDINATE AXES --//
 	vector<Vertex> CoordVerts =
 	{
@@ -216,39 +219,51 @@ void createObjects(void)
 	createVAOs(vc, controlIndices, 3);
 
 	VertexBufferSize[4] = controlPoints.size() * sizeof(controlPoints[0]);
-	createVAOs(controlPoints, controlPntInd, 4);
+	createVAOs(controlPoints, gridTriangs, 4);
 
 	texture = load_texture_TGA("modules/aru/akalai.tga", &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 	cout << texture << endl;
+
+	vector<Vertex> testverts =
+	{
+		{ { 0.0, 0.0, 0.0, 1.0 },{ 1.0, 0.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 } ,{ 0.0,0.0 } },
+		{ { 10.0, 0.0, 0.0, 1.0 },{ 1.0, 0.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 },{ 1.0,0.0 } },
+		{ { 0.0, 10.0, 0.0, 1.0 },{ 0.0, 1.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 } ,{ 0.0,1.0 } },
+		{ { 10.0, 10.0, 0.0, 1.0 },{ 0.0, 1.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 } ,{ 1.0,1.0 } },
+	};
+	VertexBufferSize[5] = testverts.size() * sizeof(testverts[0]);
+	vector<unsigned short> testIndices ={0, 1, 2, 3,};
+	createVAOs(testverts, testIndices, 5);
+	for (int i = 0; i < gridTriangs.size(); i++)
+	{
+		cout << "[ " << controlPoints[gridTriangs[i]].Position[0] << "," << controlPoints[gridTriangs[i]].Position[1] <<" ]"<<endl;
+	}
+
 	
 
 }
-void genTexture(){
-	int width, height;
-	unsigned char* image = SOIL_load_image("modules/aru/akalai.tga", &width, &height, 0, SOIL_LOAD_RGB);
-	glGenTextures(1, &texture);
-
-	glBindTexture(GL_TEXTURE_2D, texture);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	SOIL_free_image_data(image);
-	glBindTexture(GL_TEXTURE_2D, 0);
-}
 
 int drawObject(const int vertID, const vector<Vertex>& objVerts,
-	const vector<unsigned short>& objIdcs, bool triang = true)
+	const vector<unsigned short>& objIdcs, int triang = 0)
 {
 	glBindVertexArray(VertexArrayId[vertID]);	// draw object
 	glBindBuffer(GL_ARRAY_BUFFER, VertexBufferId[vertID]);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, objIdcs.size() * sizeof(Vertex), &objVerts[0]);
-	if (triang)
+	switch (triang) {
+	case 0:
+		glDrawElements(GL_POINTS, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
+		break;
+	case 1:
+		glDrawElements(GL_LINES, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
+		break;
+	case 2:
 		glDrawElements(GL_TRIANGLES, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
-	else
-		glDrawElements(GL_LINE, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
-
-	return 0;
+		break;
+	case 3:
+		glDrawElements(GL_TRIANGLE_STRIP, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
+		break;
+	}
+		return 0;
 }
 
 bool flags = true;
@@ -290,23 +305,25 @@ void renderScene(void)
 		
 		if(flagc){
 
-			glUniform1f(LightIDUniami, 0.0);
+			glUniform1f(LightIDUniami, 0.5);
 		glBindVertexArray(VertexArrayId[3]);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, vc.size());
+		glDrawArrays(GL_LINES, 0, vc.size());
 		glPointSize(5.0);
-
+		drawObject(4, controlPoints, gridTriangs, 0);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glUniform1i(textureID, 0);
 		
+		
+		
+		glUniform1f(LightIDUniami, 0.0);
 		glBindVertexArray(VertexArrayId[4]);
-		//glDrawElements(GL_TRIANGLES_ADJACENCY, controlPoints.size(), GL_UNSIGNED_SHORT, (void*)0);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, controlPoints.size());
-
-		glBindVertexArray(0);
+		drawObject(4, controlPoints, gridTriangs, 3);
 		glUniform1f(LightIDUniami, 0.5);
+		
+		glBindVertexArray(0);
+		
 		}
-		//glDrawArrays(GL_POINTS, 0, vc.size());
 		
 		
 
@@ -339,7 +356,7 @@ void renderScene(void)
 
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
 		if (flags) {
-			drawObject(2, baseVerts, baseIdcs);
+			drawObject(2, baseVerts, baseIdcs, 2);
 		}
 
 		glBindVertexArray(0);
@@ -505,6 +522,7 @@ void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, 
 	const size_t RgbOffset = sizeof(Vertices[0].Position);
 	const size_t Normaloffset = sizeof(Vertices[0].Color) + RgbOffset;
 	const size_t UVoffsset = sizeof(Vertices[0].Normal)+Normaloffset;
+	cout << " rgb Offset " << RgbOffset << endl;
 	cout << " Norm Offset " << Normaloffset << endl;
 	cout << " UVoffset " << UVoffsset << endl;
 
@@ -520,6 +538,7 @@ void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, 
 	// Create Buffer for indices
 	//if (Indices != NULL) {
 	if (!Indices.empty()) {
+		IndexBufferSize[ObjectId] = sizeof(unsigned short) * Indices.size();
 		glGenBuffers(1, &IndexBufferId[ObjectId]);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferId[ObjectId]);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, IndexBufferSize[ObjectId], &Indices[0], GL_STATIC_DRAW);
@@ -528,8 +547,8 @@ void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, 
 	// Assign vertex attributes
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, VertexSize, 0);
 	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, VertexSize, (GLvoid*)RgbOffset);
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, VertexSize, (GLvoid*)Normaloffset);
-	glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, VertexSize, (GLvoid*)UVoffsset);
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, VertexSize, (GLvoid*)Normaloffset);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, VertexSize, (GLvoid*)UVoffsset);
 
 	glEnableVertexAttribArray(0);	// position
 	glEnableVertexAttribArray(1);	// color
@@ -737,8 +756,8 @@ void drawcontrol(void)
 
 	size_t ind = 0;
 	// Generate points to draw grid
-	for (int i = -10; i <= 10; i++) {
-		array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
+	for (int i = 0; i <= 20; i++) {
+		array<float, 4> color = { 0.0, 1.0, 0.0, 0.5 };
 		array<float, 3> normal = { 0.0, 0.0, 1.0 };
 		array<float, 4> position = { -10.0, float(i), 0.0, 1.0f };
 		Vertex tmp;
@@ -759,9 +778,9 @@ void drawcontrol(void)
 		ind++;
 	}
 	for (int i = -10; i <= 10; i++) {
-		array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
+		array<float, 4> color = { 0.0, 1.0, 0.0, 0.5 };
 		array<float, 3> normal = { 0.0, 0.0, 1.0 };
-		array<float, 4> position = { float(i), -10.0, 0.0, 1.0f };
+		array<float, 4> position = { float(i), 0.0, 0.0, 1.0f };
 		Vertex tmp;
 		tmp.Position = position;
 		tmp.Color = color;
@@ -770,7 +789,7 @@ void drawcontrol(void)
 		controlIndices.push_back(ind);
 		ind++;
 
-		position = { float(i), 10.0, 0.0, 1.0f };
+		position = { float(i), 20.0, 0.0, 1.0f };
 		Vertex tmp1;
 		tmp1.Color = color;
 		tmp1.Normal = normal;
@@ -782,20 +801,19 @@ void drawcontrol(void)
 
 	cout << "control Size " << vc.size() << endl;
 }
-
 void genPoints()
 
 {
 	size_t ind = 0;
-	float s = 0.0, t = 0.0;
+	float s = 0.0, t = 1.0;
 	// Generate points to draw grid
-	for (int j = -10; j <= 10; j++) {
+	for (int j = 20; j >= 0; j--) {
 		for (int i = -10; i <= 10; i++)
 		{
 			array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
 			array<float, 3> normal = { 0.0, 0.0, 1.0 };
 			array<float, 4> position = { float(i), float(j), 0.0, 1.0f };
-			array<float, 2> texture = { s,t };
+			array<float, 2> texture = { t,s };
 			s = s + 0.05;
 			Vertex tmp;
 			tmp.Position = position;
@@ -808,7 +826,7 @@ void genPoints()
 
 		}
 		s = 0.0;
-		t = t + 0.05;
+		t = t - 0.05;
 
 	}
 }
