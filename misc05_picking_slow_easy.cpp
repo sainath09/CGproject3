@@ -55,7 +55,7 @@ void renderScene(void);
 void cleanup(void);
 static void keyCallback(GLFWwindow*, int, int, int, int);
 static void mouseCallback(GLFWwindow*, int, int, int);
-void drawgrid(void);
+void drawAxisgrid(void);
 void genPoints(void);
 void genTexture(void);
 void changecamera(int);
@@ -108,10 +108,10 @@ GLfloat phi = 0.0;
 //for grid variables
 std::vector<Vertex> vg,vc;
 std::vector<Vertex> controlPoints;
-vector<unsigned short> gridIndices,controlIndices, controlPntInd;
+vector<unsigned short> gridIndices,controlIndices, controlPntInd; //ci fo linesgrid, cpi for points on grid 
 
-vector<Vertex> baseVerts;
-vector<GLushort> baseIdcs;
+vector<Vertex> faceVerts;
+vector<GLushort> faceIdcs;
 
 //for camera
 
@@ -163,8 +163,8 @@ std::vector<unsigned short> gridTriangs;
 void createObjects(void)
 {
 	float a[4], b[4], c[4],d[4];
-	vector<float> outputVerts(4);
-	float zDirection[] = { 0.0,0.0,-1.0,1.0 };
+	vector<float> OV(4); //output verts
+	float zDirection[] = { 0.0,0.0,1.0,1.0 };
 	//-- COORDINATE AXES --//
 	vector<Vertex> CoordVerts =
 	{
@@ -190,8 +190,8 @@ void createObjects(void)
 
 	string baseFile = "modules/aru/aaruBlender.obj";
 	char* fname = (char*)baseFile.c_str();
-	loadObject(fname, glm::vec4(1.0, 0.80, 0.60, 1.0), baseVerts, baseIdcs, 2);
-	createVAOs(baseVerts, baseIdcs, 2);
+	loadObject(fname, glm::vec4(1.0, 0.80, 0.60, 1.0), faceVerts, faceIdcs, 2);
+	createVAOs(faceVerts, faceIdcs, 2);
 
 
 	VertexBufferSize[3] = vc.size() * sizeof(vc[0]);
@@ -200,46 +200,45 @@ void createObjects(void)
 	
 	//for texture loading
 	texture = load_texture_TGA("modules/aru/akalai.tga", &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-	cout << texture << endl;
+	cout <<"texture ID:"<< texture << endl;
 	
 	int loopcount=0;
 	for (int i = 0; i<controlPoints.size(); i++)
 	{
 		toFloat(controlPoints[i].Position, d);
 
-		for (int j = 0; j < baseIdcs.size() - 2; j+=3)
+		for (int j = 0; j < faceIdcs.size() - 2; j=j+3)
 		{
-				toFloat(baseVerts[baseIdcs[j]].Position, a);
-				toFloat(baseVerts[baseIdcs[j + 1]].Position, b);
-				toFloat(baseVerts[baseIdcs[j + 2]].Position, c);
-				ray_cast(a, b, c,d, zDirection, outputVerts);
-			if(outputVerts[0]>=0&& outputVerts[1]>=0 && outputVerts[2]>=0 )
+			
+      			toFloat(faceVerts[faceIdcs[j]].Position, a);
+				toFloat(faceVerts[faceIdcs[j + 1]].Position, b);
+				toFloat(faceVerts[faceIdcs[j + 2]].Position, c);
+				ray_cast(a, b, c,d, zDirection, OV); //OV- OutputVerts
+			if(OV[0]>0 && OV[1]>0  && OV[2]>0)
 			{			
-				loopcount++;
-				std::array<float, 4> outVerts;
-				//outVerts[0] = outputVerts[0] * a[0] ;
-				//outVerts[1] = outputVerts[1] * a[1];
-				outVerts[2] = outputVerts[2] * a[2]+ outputVerts[2] * b[2]+ outputVerts[2] * c[2];
-				outVerts[3] = 1.0;
-				cout << "Before:"<<controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
-					<< controlPoints[i].Position[2] << endl;
-				//controlPoints[j].Position[0] = outVerts[0];
-				//controlPoints[j].Position[1] = outVerts[1];
-				if(controlPoints[i].Position[2]>outVerts[2])
-
-					controlPoints[i].Position[2] = outVerts[2];
 				
-				//controlPoints[j].Position[3] = outVerts[3];
-				cout << "After:" << controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
-					<< controlPoints[i].Position[2] << endl;
-				cout << "loops:" << loopcount<<endl;
-				break;
-			}
-			else {
-				//if(controlPoints[i].Position[2] ==-5)
-				//controlPoints[i].Position[2] = 0.0;
-			}
+				loopcount++;
+				std::array<float, 4> outVerts;  // a temporary variable for geting co ordinates from barycentric
+				outVerts[0] = OV[0] * a[0] + OV[1] * b[1]+ OV[2] * c[0]; 
 
+				outVerts[1] = OV[0] * a[1] + OV[1] * b[1] + OV[2] * c[1];
+				outVerts[2] = OV[0] * a[2] + OV[1] * b[2] + OV[2] * c[2];
+				outVerts[3] = 1.0;
+				//cout << "Before:"<<controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
+				//	<< controlPoints[i].Position[2] << endl;
+				
+				if (controlPoints[i].Position[2] > outVerts[2]) {
+					//controlPoints[i].Position[0] = outVerts[0];
+					//controlPoints[i].Position[1] = outVerts[1];
+					controlPoints[i].Position[2] = outVerts[2];
+					cout << "After:" << controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
+							<< controlPoints[i].Position[2] << endl;
+				}
+				//cout << "After:" << controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
+				//	<< controlPoints[i].Position[2] << endl;
+				cout << "loops:" << loopcount<<endl;
+				
+			}
 		}
 		
 
@@ -310,28 +309,25 @@ void renderScene(void)
 		
 		
 		glBindVertexArray(VertexArrayId[1]);
-		glDrawArrays(GL_LINES, 0, vg.size());
+		glDrawArrays(GL_LINES, 0, vg.size()); //for co-ordinate grid on XZ direction!
 		
 		if (flags) {
-			drawObject(2, baseVerts, baseIdcs, 2);
+			drawObject(2, faceVerts, faceIdcs, 2); //for drawing face
 		}
 		if(flagc){
 
 			
-		//glBindVertexArray(VertexArrayId[3]);
-		//glDrawArrays(GL_LINES, 0, vc.size());
+		glBindVertexArray(VertexArrayId[4]);
+		drawObject(4, controlPoints, controlPntInd, 1);
+		 //for grid lines
 		glPointSize(5.0);
 
 		
 		
 		glBindVertexArray(VertexArrayId[4]);
-		drawObject(4, controlPoints, gridTriangs, 0);
-		//glDrawArrays(GL_POINTS, 0, controlPoints.size());
+		drawObject(4, controlPoints, gridTriangs, 0); //for grid points //texture is drwan below in textrue programID
 		
-		
-		//glDrawArrays(GL_TRIANGLE_STRIP, 0, controlPoints.size());
-		
-		
+
 		glBindVertexArray(0);
 		
 		}
@@ -358,12 +354,6 @@ void renderScene(void)
 			flagcountsides = 0;
 			flagr = !flagr;
 		}
-			
-		
-
-		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
-		
-
 		glBindVertexArray(0);
 
 	}
@@ -378,7 +368,7 @@ void renderScene(void)
 		glUniform1i(textureID, 0);
 		if(flagc){
 		glBindVertexArray(VertexArrayId[4]);
-		drawObject(4, controlPoints, gridTriangs, 3);
+		drawObject(4, controlPoints, gridTriangs, 3);  //for texture
 		}
 	}
 	glUseProgram(0);
@@ -543,9 +533,7 @@ void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, 
 	const size_t RgbOffset = sizeof(Vertices[0].Position);
 	const size_t Normaloffset = sizeof(Vertices[0].Color) + RgbOffset;
 	const size_t UVoffsset = sizeof(Vertices[0].Normal)+Normaloffset;
-	cout << " rgb Offset " << RgbOffset << endl;
-	cout << " Norm Offset " << Normaloffset << endl;
-	cout << " UVoffset " << UVoffsset << endl;
+	
 
 	// Create Vertex Array Object
 	glGenVertexArrays(1, &VertexArrayId[ObjectId]);	//
@@ -714,12 +702,8 @@ static void mouseCallback(GLFWwindow* window, int button, int action, int mods)
 		pickObject();
 	}
 }
-void drawgrid(void)
+void drawAxisgrid(void)
 {
-	int width = 21;
-	int height = 21;
-	int row_ind = 0;
-
 	size_t ind = 0;
 	// Generate points to draw grid
 	for (int i = -10; i <= 10; i++) {
@@ -770,7 +754,7 @@ void drawgrid(void)
 	
 }
 
-void drawcontrol(void)
+void drawcontrol(void) // use this function only if required
 {
 	
 
@@ -822,22 +806,21 @@ void drawcontrol(void)
 	cout << "control Size " << vc.size() << endl;
 }
 void genPoints()
-
 {
 	size_t ind = 0;
-	int width = 21;
-	int height = 21;
-	genGridTriangs(2*width, 2*height, gridTriangs);
+	int widthGrid = 11;
+	int heightGrid = 11;
+	genGridTriangs(2*widthGrid, 2*heightGrid, gridTriangs);
 	float s = 0.0, t = 1.0;
 	// Generate points to draw grid
-	for (float j = height-1; j >= 0; j=j-0.5) {
-		for (float i = -width/2; i <= width/2; i=i+0.5)
+	for (float j = heightGrid-1; j >= 0; j=j-0.5) {
+		for (float i = -widthGrid/2; i <= widthGrid/2; i=i+0.5)
 		{
 			array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
 			array<float, 3> normal = { 0.0, 0.0, 1.0 };
 			array<float, 4> position = { float(i), float(j), 0.0, 1.0f };
 			array<float, 2> texture = { t,s };
-			s = s + (1/(float(2*width)-1));
+			s = s + (1/(float(2*widthGrid)-1));
 			Vertex tmp;
 			tmp.Position = position;
 			tmp.Color = color;
@@ -849,7 +832,7 @@ void genPoints()
 
 		}
 		s = 0.0;
-		t = t - (1 / (float(2*height) - 1));
+		t = t - (1 / (float(2*heightGrid) - 1));
 
 	}
 }
@@ -898,10 +881,10 @@ int main(void)
 	int errorCode = initWindow();
 	if (errorCode != 0)
 		return errorCode;
-	drawgrid();
-	drawcontrol();
+	drawAxisgrid();
+	//drawcontrol(); ///not using this one. might require in future //for drawing lines on control points
 	genPoints();
-	//genTexture();
+	
 	// initialize OpenGL pipeline
 	initOpenGL();
 	
