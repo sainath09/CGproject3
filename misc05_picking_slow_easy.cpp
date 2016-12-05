@@ -31,38 +31,11 @@ using namespace glm;
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
 #include <misc05_picking\gridOps.h>
+#include <misc05_picking\ray_casting.h>
 
 const int window_width = 1024, window_height = 768;
 
-typedef struct Vertex {
-	array<float, 4> Position;
-	array<float, 4> Color;
-	array<float, 3> Normal;
-	array<float, 2> textureCords;
-	void SetPosition(float* coords) {
-		Position[0] = coords[0];
-		Position[1] = coords[1];
-		Position[2] = coords[2];
-		Position[3] = 1.0;
-	}
-	void SetColor(float* color) {
-		Color[0] = color[0];
-		Color[1] = color[1];
-		Color[2] = color[2];
-		Color[3] = color[3];
-	}
-	void SetNormal(float* coords) {
-		Normal[0] = coords[0];
-		Normal[1] = coords[1];
-		Normal[2] = coords[2];
-	}
-	void setTexture(float* coords)
-	{
-		textureCords[0] = coords[0];
-		textureCords[1] = coords[1];
 
-	}
-}Vertex;
 typedef struct campos {
 	float x, y, z;
 };
@@ -98,6 +71,7 @@ GLuint gPickedIndex = -1;
 std::string gMessage;
 
 GLuint programID;
+GLuint textureprogramID;
 GLuint pickingProgramID;
 
 const GLuint NumObjects = 11;	// ATTN: THIS NEEDS TO CHANGE AS YOU ADD NEW OBJECTS
@@ -113,6 +87,10 @@ GLuint MatrixID;
 GLuint ModelMatrixID;
 GLuint ViewMatrixID;
 GLuint ProjMatrixID;
+GLuint tModelMatrixID;
+GLuint tViewMatrixID;
+GLuint tProjMatrixID;
+
 GLuint PickingMatrixID;
 GLuint pickingColorID;
 GLuint LightID, LightID1, LightID2;
@@ -184,8 +162,9 @@ void loadObject(char* file, glm::vec4 color,
 std::vector<unsigned short> gridTriangs;
 void createObjects(void)
 {
-	
-	genGridTriangs(21, 21, gridTriangs);
+	float a[4], b[4], c[4],d[4];
+	vector<float> outputVerts(4);
+	float zDirection[] = { 0.0,0.0,-1.0,1.0 };
 	//-- COORDINATE AXES --//
 	vector<Vertex> CoordVerts =
 	{
@@ -209,7 +188,7 @@ void createObjects(void)
 
 	// ATTN: load your models here
 
-	string baseFile = "modules/aru/AaruKalaikannan_meshlab.obj";
+	string baseFile = "modules/aru/aaruBlender.obj";
 	char* fname = (char*)baseFile.c_str();
 	loadObject(fname, glm::vec4(1.0, 0.80, 0.60, 1.0), baseVerts, baseIdcs, 2);
 	createVAOs(baseVerts, baseIdcs, 2);
@@ -218,29 +197,58 @@ void createObjects(void)
 	VertexBufferSize[3] = vc.size() * sizeof(vc[0]);
 	createVAOs(vc, controlIndices, 3);
 
+	
+	//for texture loading
+	texture = load_texture_TGA("modules/aru/akalai.tga", &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+	cout << texture << endl;
+	
+	int loopcount=0;
+	for (int i = 0; i<controlPoints.size(); i++)
+	{
+		toFloat(controlPoints[i].Position, d);
+
+		for (int j = 0; j < baseIdcs.size() - 2; j+=3)
+		{
+				toFloat(baseVerts[baseIdcs[j]].Position, a);
+				toFloat(baseVerts[baseIdcs[j + 1]].Position, b);
+				toFloat(baseVerts[baseIdcs[j + 2]].Position, c);
+				ray_cast(a, b, c,d, zDirection, outputVerts);
+			if(outputVerts[0]>=0&& outputVerts[1]>=0 && outputVerts[2]>=0 )
+			{			
+				loopcount++;
+				std::array<float, 4> outVerts;
+				//outVerts[0] = outputVerts[0] * a[0] ;
+				//outVerts[1] = outputVerts[1] * a[1];
+				outVerts[2] = outputVerts[2] * a[2]+ outputVerts[2] * b[2]+ outputVerts[2] * c[2];
+				outVerts[3] = 1.0;
+				cout << "Before:"<<controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
+					<< controlPoints[i].Position[2] << endl;
+				//controlPoints[j].Position[0] = outVerts[0];
+				//controlPoints[j].Position[1] = outVerts[1];
+				if(controlPoints[i].Position[2]>outVerts[2])
+
+					controlPoints[i].Position[2] = outVerts[2];
+				
+				//controlPoints[j].Position[3] = outVerts[3];
+				cout << "After:" << controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
+					<< controlPoints[i].Position[2] << endl;
+				cout << "loops:" << loopcount<<endl;
+				break;
+			}
+			else {
+				//if(controlPoints[i].Position[2] ==-5)
+				//controlPoints[i].Position[2] = 0.0;
+			}
+
+		}
+		
+
+	}
+
 	VertexBufferSize[4] = controlPoints.size() * sizeof(controlPoints[0]);
 	createVAOs(controlPoints, gridTriangs, 4);
 
-	texture = load_texture_TGA("modules/aru/akalai.tga", &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-	cout << texture << endl;
-
-	vector<Vertex> testverts =
-	{
-		{ { 0.0, 0.0, 0.0, 1.0 },{ 1.0, 0.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 } ,{ 0.0,0.0 } },
-		{ { 10.0, 0.0, 0.0, 1.0 },{ 1.0, 0.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 },{ 1.0,0.0 } },
-		{ { 0.0, 10.0, 0.0, 1.0 },{ 0.0, 1.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 } ,{ 0.0,1.0 } },
-		{ { 10.0, 10.0, 0.0, 1.0 },{ 0.0, 1.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0 } ,{ 1.0,1.0 } },
-	};
-	VertexBufferSize[5] = testverts.size() * sizeof(testverts[0]);
-	vector<unsigned short> testIndices ={0, 1, 2, 3,};
-	createVAOs(testverts, testIndices, 5);
-	for (int i = 0; i < gridTriangs.size(); i++)
-	{
-		cout << "[ " << controlPoints[gridTriangs[i]].Position[0] << "," << controlPoints[gridTriangs[i]].Position[1] <<" ]"<<endl;
-	}
-
 	
-
 }
 
 int drawObject(const int vertID, const vector<Vertex>& objVerts,
@@ -260,6 +268,7 @@ int drawObject(const int vertID, const vector<Vertex>& objVerts,
 		glDrawElements(GL_TRIANGLES, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
 		break;
 	case 3:
+		
 		glDrawElements(GL_TRIANGLE_STRIP, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
 		break;
 	}
@@ -303,31 +312,31 @@ void renderScene(void)
 		glBindVertexArray(VertexArrayId[1]);
 		glDrawArrays(GL_LINES, 0, vg.size());
 		
+		if (flags) {
+			drawObject(2, baseVerts, baseIdcs, 2);
+		}
 		if(flagc){
 
-			glUniform1f(LightIDUniami, 0.5);
-		glBindVertexArray(VertexArrayId[3]);
-		glDrawArrays(GL_LINES, 0, vc.size());
+			
+		//glBindVertexArray(VertexArrayId[3]);
+		//glDrawArrays(GL_LINES, 0, vc.size());
 		glPointSize(5.0);
-		drawObject(4, controlPoints, gridTriangs, 0);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, texture);
-		glUniform1i(textureID, 0);
+
 		
 		
-		
-		glUniform1f(LightIDUniami, 0.0);
 		glBindVertexArray(VertexArrayId[4]);
-		drawObject(4, controlPoints, gridTriangs, 3);
-		glUniform1f(LightIDUniami, 0.5);
+		drawObject(4, controlPoints, gridTriangs, 0);
+		//glDrawArrays(GL_POINTS, 0, controlPoints.size());
+		
+		
+		//glDrawArrays(GL_TRIANGLE_STRIP, 0, controlPoints.size());
+		
 		
 		glBindVertexArray(0);
 		
 		}
 		
-		
-
-			if (fvertical)
+		if (fvertical)
 			{
 				changecamera(flagcountup);
 			}
@@ -350,17 +359,27 @@ void renderScene(void)
 			flagr = !flagr;
 		}
 			
-		glm::mat4 trans;
-		trans = glm::scale(trans, glm::vec3(40.0, 40.0, 40.0));
-		ModelMatrix = trans;
+		
 
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
-		if (flags) {
-			drawObject(2, baseVerts, baseIdcs, 2);
-		}
+		
 
 		glBindVertexArray(0);
 
+	}
+	glUseProgram(textureprogramID);
+	{
+		glm::mat4x4 ModelMatrix = glm::mat4(1.0);
+		glUniformMatrix4fv(tViewMatrixID, 1, GL_FALSE, &gViewMatrix[0][0]);
+		glUniformMatrix4fv(tProjMatrixID, 1, GL_FALSE, &gProjectionMatrix[0][0]);
+		glUniformMatrix4fv(tModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, texture);
+		glUniform1i(textureID, 0);
+		if(flagc){
+		glBindVertexArray(VertexArrayId[4]);
+		drawObject(4, controlPoints, gridTriangs, 3);
+		}
 	}
 	glUseProgram(0);
 	// Draw GUI
@@ -370,8 +389,6 @@ void renderScene(void)
 	glfwSwapBuffers(window);
 	glfwPollEvents();
 }
-
-
 void pickObject(void)
 {
 	// Clear the screen in white
@@ -442,7 +459,7 @@ int initWindow(void)
 	//glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
 	// Open a window and create its OpenGL context
-	window = glfwCreateWindow(window_width, window_height, "Kanamathareddy,Poorna(35915896)", NULL, NULL);
+	window = glfwCreateWindow(window_width, window_height, "Kanamathareddy,Poorna(3591-5896)", NULL, NULL);
 	if (window == NULL) {
 		fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Try the 2.1 version of the tutorials.\n");
 		glfwTerminate();
@@ -495,12 +512,16 @@ void initOpenGL(void)
 									// Create and compile our GLSL program from the shaders
 	programID = LoadShaders("StandardShading.vertexshader", "StandardShading.fragmentshader");
 	pickingProgramID = LoadShaders("Picking.vertexshader", "Picking.fragmentshader");
-
+	textureprogramID = LoadShaders("texture.vertexshader", "texture.fragmentshader");
 	// Get a handle for our "MVP" uniform
 	MatrixID = glGetUniformLocation(programID, "MVP");
 	ModelMatrixID = glGetUniformLocation(programID, "M");
 	ViewMatrixID = glGetUniformLocation(programID, "V");
 	ProjMatrixID = glGetUniformLocation(programID, "P");
+	tModelMatrixID = glGetUniformLocation(textureprogramID, "tM");
+	tViewMatrixID = glGetUniformLocation(textureprogramID, "tV");
+	tProjMatrixID = glGetUniformLocation(textureprogramID, "tP");
+
 
 	PickingMatrixID = glGetUniformLocation(pickingProgramID, "MVP");
 	// Get a handle for our "pickingColorID" uniform
@@ -511,7 +532,7 @@ void initOpenGL(void)
 
 	LightIDUni = glGetUniformLocation(programID, "LightPower");
 	LightIDUniami = glGetUniformLocation(programID, "ambientpower");
-	textureID = glGetUniformLocation(programID, "faceTexture");
+	textureID = glGetUniformLocation(textureprogramID, "faceTexture");
 	createObjects();
 }
 
@@ -673,6 +694,7 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 		case GLFW_KEY_UP:
 			fvertical = !fvertical;
 			break;
+
 		case GLFW_KEY_DOWN:
 			fvertical = !fvertical;
 			break;
@@ -750,16 +772,14 @@ void drawgrid(void)
 
 void drawcontrol(void)
 {
-	int width = 21;
-	int height = 21;
-	int row_ind = 0;
+	
 
 	size_t ind = 0;
 	// Generate points to draw grid
 	for (int i = 0; i <= 20; i++) {
 		array<float, 4> color = { 0.0, 1.0, 0.0, 0.5 };
 		array<float, 3> normal = { 0.0, 0.0, 1.0 };
-		array<float, 4> position = { -10.0, float(i), 0.0, 1.0f };
+		array<float, 4> position = { -10.0, float(i), -5.0, 1.0f };
 		Vertex tmp;
 		tmp.Position = position;
 		tmp.Color = color;
@@ -768,7 +788,7 @@ void drawcontrol(void)
 		controlIndices.push_back(ind);
 		ind++;
 
-		position = { 10.0, float(i), 0.0, 1.0f };
+		position = { 10.0, float(i), -5.0, 1.0f };
 		Vertex tmp1;
 		tmp1.Color = color;
 		tmp1.Normal = normal;
@@ -780,7 +800,7 @@ void drawcontrol(void)
 	for (int i = -10; i <= 10; i++) {
 		array<float, 4> color = { 0.0, 1.0, 0.0, 0.5 };
 		array<float, 3> normal = { 0.0, 0.0, 1.0 };
-		array<float, 4> position = { float(i), 0.0, 0.0, 1.0f };
+		array<float, 4> position = { float(i), 0.0, -5.0, 1.0f };
 		Vertex tmp;
 		tmp.Position = position;
 		tmp.Color = color;
@@ -789,7 +809,7 @@ void drawcontrol(void)
 		controlIndices.push_back(ind);
 		ind++;
 
-		position = { float(i), 20.0, 0.0, 1.0f };
+		position = { float(i), 20.0, -5.0, 1.0f };
 		Vertex tmp1;
 		tmp1.Color = color;
 		tmp1.Normal = normal;
@@ -805,16 +825,19 @@ void genPoints()
 
 {
 	size_t ind = 0;
+	int width = 21;
+	int height = 21;
+	genGridTriangs(2*width, 2*height, gridTriangs);
 	float s = 0.0, t = 1.0;
 	// Generate points to draw grid
-	for (int j = 20; j >= 0; j--) {
-		for (int i = -10; i <= 10; i++)
+	for (float j = height-1; j >= 0; j=j-0.5) {
+		for (float i = -width/2; i <= width/2; i=i+0.5)
 		{
 			array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
 			array<float, 3> normal = { 0.0, 0.0, 1.0 };
 			array<float, 4> position = { float(i), float(j), 0.0, 1.0f };
 			array<float, 2> texture = { t,s };
-			s = s + 0.05;
+			s = s + (1/(float(2*width)-1));
 			Vertex tmp;
 			tmp.Position = position;
 			tmp.Color = color;
@@ -826,7 +849,7 @@ void genPoints()
 
 		}
 		s = 0.0;
-		t = t - 0.05;
+		t = t - (1 / (float(2*height) - 1));
 
 	}
 }

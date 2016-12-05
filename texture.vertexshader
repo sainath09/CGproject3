@@ -1,0 +1,30 @@
+#version 330 core
+
+// Input vertex data, different for all executions of this shader.
+
+layout(location = 3) in vec2 textureCords;
+layout(location = 0) in vec4 vertexPosition_modelspace;
+
+// Output data ; will be interpolated for each fragment.
+out vec2 Texturecords;
+out vec3 Position_worldspace;
+
+// Values that stay constant for the whole mesh.
+uniform mat4 tM;
+uniform mat4 tV;
+uniform mat4 tP;
+
+
+void main(){
+	gl_PointSize = 15.0;
+	// Output position of the vertex, in clip space : MVP * position
+	gl_Position =  tP * tV * tM * vertexPosition_modelspace;
+	
+	// Position of the vertex, in worldspace : M * position
+	Position_worldspace = (tM * vertexPosition_modelspace).xyz;
+
+	// UV of the vertex. No special space for this one.
+	
+	Texturecords=textureCords;
+}
+

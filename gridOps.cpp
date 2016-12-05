@@ -5,7 +5,8 @@ using namespace std;
 int genGridTriangs(const int gridX, const int gridY, std::vector<unsigned short>& gridTriangs)
 {
 	int a = 0;
-	for (int i = 0; i < gridX - 1; i++)
+	
+		for (int i = 0; i < gridX - 1; i++)
 	{
 		for (int j = 0; j < gridY - 1; j++)
 		{
@@ -28,4 +29,13 @@ int genGridTriangs(const int gridX, const int gridY, std::vector<unsigned short>
 		//gridTriangs.push_back(a);
 	}
 	return 0;
+}
+int toFloat(array<float, 4> & facePoints, float *vert)
+{
+	vert[0] = facePoints[0];
+	vert[1] = facePoints[1];
+	vert[2] = facePoints[2];
+	vert[3] = facePoints[3];
+	return 0;
+
 }
