@@ -1,3 +1,5 @@
+/***Module to perform operations required to generate points on 3d surface using
+	deCasteljau's algorithm for Bezier surfaces****/
 #include <bezOps.h>
 
 using namespace std;
@@ -83,11 +85,8 @@ int compBezPt(const vector<Point>& ctrlPts, Point& pt, float t)
 		interpts[i] = ctrlPts[i];
 	}
 
-	// Compute surface Pts along desired v, for multiple u
-	// Then compute surface pt along desired u, varying v
-	int curvDeg = 3;
 	// Compute bezier coefficient recursively
-	for (int i = 1; i < curvDeg; i++) {
+	for (int i = 1; i < ctrlPtCnt; i++) {
 		for (int k = 0; k < (ctrlPtCnt - i); k++) {
 			interpts[k] = interpts[k]*(1-t)+
 						  interpts[k+1]*t;
@@ -105,3 +104,62 @@ int compBezPt(const vector<Point>& ctrlPts, Point& pt, float t)
 	return 0;
 }
 
+
+// Compute surface points on bi-cubic Bezier surface
+int compBezSurf(const vector<Point>& ctrlPts, const int tess_no,
+					  vector<Point>& surfPts)
+{
+	int tess_no = 10;
+	size_t patchCount = ctrlPts.size();
+	size_t ctPtCount = 4; // Curve param: ctrl pt count = curve deg+1
+	float surfRes = 1 / tess_no;
+
+	// Go through each patch and compute points recursively
+	for (size_t i=0; i<patchCount; i++)
+	{
+		// There are 16 ctrl points per patch, laid out in a linear fashion
+		// 0-3, 4-7...12-15
+		vector<Point> curCtrlPts = ctrlPts[i];
+		vector<vector<Point>> interpPts;
+
+		// Interpolate points in horizontal direction
+		for (size_t j=0; j<ctPtCount; j++)
+		{
+			vector<Point>::const_iterator first = ctrlPts.begin() + j*ctPtCount;
+			vector<Point>::const_iterator last = ctrlPts.begin() + j*ctPtCount + 4;
+			vector<Point> horCtrlPts(first, last);
+			vector<Point> tmpPts;
+
+			for (int k=0; k<tess_no; k++)
+			{
+				Point bzpt;
+				compBezPt(horCtrlPts, bzPt, surfRes*k);
+				tmpPts.push_back(bzPt);
+			}
+			interpPts.push_back(tmpPts);
+		}
+
+		int vertCurvCount = interpPts.size();
+		// Interpolate points in vertical direction
+		for (size_t j=0; j<vertCurvCount; k++)
+		{
+			//vector<Point>::const_iterator first = ctrlPts.begin() + j*ctPtCount;
+			//vector<Point>::const_iterator last = ctrlPts.begin() + j*ctPtCount + 4;
+			vector<Point> verCtrlPts;
+			for (size_t l=0; l<ctPtCount; l++)
+			{
+				verCtrlPts.push_back(interpPts[l][j]);
+			}
+
+			for (int k=0; k<tess_no; k++)
+			{
+				Point bzpt;
+				compBezPt(verCtrlPts, bzPt, surfRes*k);
+				// Currently pushing points into surface array only after
+				// interpolation is over in both x,y directions
+				// TODO: May have to revisit to check if this is the right idea
+				surfPts.push_back(bzPt);
+			}	
+		}
+	return 0;
+}

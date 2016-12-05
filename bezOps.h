@@ -34,4 +34,11 @@ typedef struct point {
 // Function packs indices of generated grid points (strong assumption about
 // ordering of grid points inherent in function
 int packGridIndices(const int gridX, int gridY, std::vector<std::vector<int>>& bezSrcPts);
+// Compute control points for Bezier surface using grid points as starting points
+int compBezCtrlPoints(const std::vector<Point>& gridPts, const int gridX,
+					  const int gridY, const std;:vector<std::vector<int>>& bezIndices,
+					  std::vector<std::vector<Point>>& bezCtrlPts)
+// Compute surface points on bi-cubic Bezier surface
+int compBezSurf(const std::vector<Point>& ctrlPts, const int tess_no,
+					  std::vector<Point>& surfPts);
 #endif
