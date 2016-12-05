@@ -15,7 +15,6 @@ using namespace std;
 
 // Include GLFW
 #include <glfw3.h>
-#include<common/SOIL.h>
 // Include GLM
 
 #include <glm/glm.hpp>
@@ -30,8 +29,8 @@ using namespace glm;
 #include <common/controls.hpp>
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
-#include <misc05_picking\gridOps.h>
-#include <misc05_picking\ray_casting.h>
+#include <misc05_picking/gridOps.h>
+#include <misc05_picking/ray_casting.h>
 
 const int window_width = 1024, window_height = 768;
 
@@ -50,6 +49,7 @@ int drawObject(const int vertID, const vector<Vertex>& objVerts,
 	const vector<unsigned short>& objIdcs, int triang);
 void createVAOs(vector<Vertex>&, vector<unsigned short>&, int);
 void createObjects(void);
+int rayCastingFunc(void);
 void pickObject(void);
 void renderScene(void);
 void cleanup(void);
@@ -57,10 +57,10 @@ static void keyCallback(GLFWwindow*, int, int, int, int);
 static void mouseCallback(GLFWwindow*, int, int, int);
 void drawAxisgrid(void);
 void genPoints(void);
-void genTexture(void);
+
 void changecamera(int);
-void translate(Vertex[], int);
-vec3 calcvecf(float, vec4);
+
+
 // GLOBAL VARIABLES
 GLFWwindow* window;
 bool flagr = false;
@@ -93,17 +93,13 @@ GLuint tProjMatrixID;
 
 GLuint PickingMatrixID;
 GLuint pickingColorID;
-GLuint LightID, LightID1, LightID2;
+GLuint LightID;
 GLuint texture;
 GLuint textureID;
 long width, height;
 
 GLint gX = 0.0;
 GLint gZ = 0.0;
-
-// animation control
-bool animation = false;
-GLfloat phi = 0.0;
 
 //for grid variables
 std::vector<Vertex> vg,vc;
@@ -115,7 +111,7 @@ vector<GLushort> faceIdcs;
 
 //for camera
 
-bool fvertical = false, fsides = false, fverticalpen = true, fsidespen = true;
+bool fvertical = false, fsides = false;
 GLint flagcountup = 0, flagcountsides = 0;
 campos temp = { 20.0, 20.0, 20.0 };
 
@@ -162,9 +158,6 @@ void loadObject(char* file, glm::vec4 color,
 std::vector<unsigned short> gridTriangs;
 void createObjects(void)
 {
-	float a[4], b[4], c[4],d[4];
-	vector<float> OV(4); //output verts
-	float zDirection[] = { 0.0,0.0,1.0,1.0 };
 	//-- COORDINATE AXES --//
 	vector<Vertex> CoordVerts =
 	{
@@ -197,46 +190,38 @@ void createObjects(void)
 	VertexBufferSize[3] = vc.size() * sizeof(vc[0]);
 	createVAOs(vc, controlIndices, 3);
 
-	
+
 	//for texture loading
 	texture = load_texture_TGA("modules/aru/akalai.tga", &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
-	cout <<"texture ID:"<< texture << endl;
-	
-	int loopcount=0;
-	for (int i = 0; i<controlPoints.size(); i++)
-	{
-		toFloat(controlPoints[i].Position, d);
+}
+int rayCastingFunc()
+{
+	float a[4], b[4], c[4], d[4];
+	vector<float> OV(4); //output verts
+	float zDirection[] = { 0.0,0.0,1.0,1.0 };
 
-		for (int j = 0; j < faceIdcs.size() - 2; j=j+3)
+	for (int i = 0; i<controlPoints.size(); i++)
 		{
+			toFloat(controlPoints[i].Position, d);
+
+			for (int j = 0; j < faceIdcs.size() - 2; j=j+3)
+			{
 			
       			toFloat(faceVerts[faceIdcs[j]].Position, a);
 				toFloat(faceVerts[faceIdcs[j + 1]].Position, b);
 				toFloat(faceVerts[faceIdcs[j + 2]].Position, c);
 				ray_cast(a, b, c,d, zDirection, OV); //OV- OutputVerts
 			if(OV[0]>0 && OV[1]>0  && OV[2]>0)
-			{			
+				{			
 				
-				loopcount++;
-				std::array<float, 4> outVerts;  // a temporary variable for geting co ordinates from barycentric
-				outVerts[0] = OV[0] * a[0] + OV[1] * b[1]+ OV[2] * c[0]; 
-
-				outVerts[1] = OV[0] * a[1] + OV[1] * b[1] + OV[2] * c[1];
-				outVerts[2] = OV[0] * a[2] + OV[1] * b[2] + OV[2] * c[2];
-				outVerts[3] = 1.0;
-				//cout << "Before:"<<controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
-				//	<< controlPoints[i].Position[2] << endl;
-				
-				if (controlPoints[i].Position[2] > outVerts[2]) {
-					//controlPoints[i].Position[0] = outVerts[0];
-					//controlPoints[i].Position[1] = outVerts[1];
-					controlPoints[i].Position[2] = outVerts[2];
-					cout << "After:" << controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
-							<< controlPoints[i].Position[2] << endl;
-				}
-				//cout << "After:" << controlPoints[i].Position[0] << " ," << controlPoints[i].Position[1] << " ,"
-				//	<< controlPoints[i].Position[2] << endl;
-				cout << "loops:" << loopcount<<endl;
+					std::array<float, 4> outVerts;  // a temporary variable for geting co ordinates from barycentric
+					outVerts[0] = OV[0] * a[0] + OV[1] * b[1]+ OV[2] * c[0]; 
+					outVerts[1] = OV[0] * a[1] + OV[1] * b[1] + OV[2] * c[1];
+					outVerts[2] = OV[0] * a[2] + OV[1] * b[2] + OV[2] * c[2];
+					outVerts[3] = 1.0;
+					if (controlPoints[i].Position[2] > outVerts[2]) {
+						controlPoints[i].Position[2] = outVerts[2];
+						}
 				
 			}
 		}
@@ -246,9 +231,10 @@ void createObjects(void)
 
 	VertexBufferSize[4] = controlPoints.size() * sizeof(controlPoints[0]);
 	createVAOs(controlPoints, gridTriangs, 4);
-
-	
+	return 0;
 }
+	
+
 
 int drawObject(const int vertID, const vector<Vertex>& objVerts,
 	const vector<unsigned short>& objIdcs, int triang = 0)
@@ -277,7 +263,6 @@ int drawObject(const int vertID, const vector<Vertex>& objVerts,
 bool flags = true;
 
 
-//unsigned char* image = SOIL_load_image("modules/aru/akalai.tga", &width, &height, 0, SOIL_LOAD_RGB);
 
 void renderScene(void)
 {
@@ -518,12 +503,13 @@ void initOpenGL(void)
 	pickingColorID = glGetUniformLocation(pickingProgramID, "PickingColor");
 	// Get a handle for our "LightPosition" uniform
 	LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
-	LightID1 = glGetUniformLocation(programID, "LightPosition_worldspace1");
+	
 
 	LightIDUni = glGetUniformLocation(programID, "LightPower");
 	LightIDUniami = glGetUniformLocation(programID, "ambientpower");
 	textureID = glGetUniformLocation(textureprogramID, "faceTexture");
 	createObjects();
+	rayCastingFunc();
 }
 
 void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, int ObjectId) {
