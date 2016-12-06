@@ -1,5 +1,6 @@
 #include <gridOps.h>
 #include <ray_casting.h>
+#include <bezOps.h>
 
 
 #include <iostream>
@@ -35,6 +36,7 @@ typedef struct campos {
 };
 
 bool flagc = false;
+bool BEZIER=true, BEZIER_CTRL=true, BEZIER_SURF=false;
 campos camp;
 float LightIDUni;
 
@@ -71,14 +73,14 @@ GLuint programID;
 GLuint textureprogramID;
 GLuint pickingProgramID;
 
-const GLuint NumObjects = 11;	// ATTN: THIS NEEDS TO CHANGE AS YOU ADD NEW OBJECTS
-GLuint VertexArrayId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-GLuint VertexBufferId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-GLuint IndexBufferId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+const GLuint NumObjects = 12;	// ATTN: THIS NEEDS TO CHANGE AS YOU ADD NEW OBJECTS
+GLuint VertexArrayId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+GLuint VertexBufferId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+GLuint IndexBufferId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
 
-size_t NumIndices[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-size_t VertexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-size_t IndexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+size_t NumIndices[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+size_t VertexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+size_t IndexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
 
 GLuint MatrixID, ModelMatrixID, ViewMatrixID, ProjMatrixID, tModelMatrixID,
 	   tViewMatrixID, tProjMatrixID;
@@ -89,9 +91,10 @@ GLint gZ = 0.0;
 long width, height;
 
 //for grid variables
-std::vector<Vertex> vg, vc, controlPoints;
+std::vector<Vertex> vg, vc, controlPoints, bezCtrlVerts, bezSurfVerts;
 // ci for linesgrid, cpi for points on grid 
-vector<unsigned short> gridIndices, controlIndices, controlPntInd;
+vector<unsigned short> gridIndices, controlIndices, controlPntInd,
+						bezCtrlInds,  bezSurfInds;
 std::vector<unsigned short> gridTriangs;
 
 vector<Vertex> faceVerts;
@@ -175,6 +178,49 @@ void createObjects(void)
 
 	texture = load_texture_TGA("modules/aru/akalai.tga", 
 							   &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+	rayCastingFunc();
+
+	// Simulate a small grid to generate indices for bezCtrl Pt computation
+	int lenX=11, lenY=11;
+	vector<vector<int>> gridPtInds;
+	vector<vector<Point>> bezCtrlPts;
+	vector<Point> controlPointConv, bezSurfPts;
+	packGridIndices(lenX, lenY, gridPtInds);
+
+	Vert2Pt(controlPoints, controlPointConv);
+	compBezCtrlPoints(controlPointConv, gridPtInds, bezCtrlPts);
+	compBezSurf(bezCtrlPts, 10, bezSurfPts);
+	cout << " Bezier surface point count " << bezSurfPts.size() << endl;
+
+	string ctfname = "ctrlpts.csv";
+	//write2File(ctfname, controlPointConv, 11);
+	Lin2VertArr(bezCtrlPts, bezCtrlVerts, 1);
+	Pt2Vert(bezSurfPts, bezSurfVerts, 3);
+	// Compute Indices for bezier control points
+	size_t bezCtrlVertCount = bezCtrlVerts.size();
+	size_t bezSurfVertCount = bezSurfVerts.size();
+	cout << "BezVertcount " << bezCtrlVertCount << endl;
+	for (size_t i=0; i<bezCtrlVertCount ; i++)
+	{
+		bezCtrlInds.push_back(i);
+	}
+	for (size_t i=0; i<bezSurfVertCount ; i++)
+	{
+		bezSurfInds.push_back(i);
+	}
+
+
+	VertexBufferSize[10] = bezCtrlVerts.size()*sizeof(bezCtrlVerts[0]);
+	createVAOs(bezCtrlVerts, bezCtrlInds, 10);
+
+	VertexBufferSize[11] = bezSurfVerts.size()*sizeof(bezSurfVerts[0]);
+	createVAOs(bezSurfVerts, bezSurfInds, 11);
+	
+	vector<Point> bezPts;
+	Vert2Pt(bezCtrlVerts, bezPts);
+	cout << bezPts.size() << endl;
+	string btfname = "bzPts.csv";
+	//write2File(btfname,  bezPts, 44);
 
 }
 
@@ -219,23 +265,25 @@ int rayCastingFunc()
 
 
 int drawObject(const int vertID, const vector<Vertex>& objVerts,
-	const vector<unsigned short>& objIdcs, int triang = 0)
+	const vector<unsigned short>& objIdcs, int primitive = 0)
 {
 	glBindVertexArray(VertexArrayId[vertID]);	// draw object
 	glBindBuffer(GL_ARRAY_BUFFER, VertexBufferId[vertID]);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, objIdcs.size() * sizeof(Vertex), &objVerts[0]);
-	switch (triang) {
+	switch (primitive) {
 	case 0:
 		glDrawElements(GL_POINTS, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
 		break;
 	case 1:
-		glDrawElements(GL_LINE_STRIP, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
+		glDrawElements(GL_LINES, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
 		break;
 	case 2:
-		glDrawElements(GL_TRIANGLES, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
+		glDrawElements(GL_LINE_STRIP, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
 		break;
 	case 3:
-		
+		glDrawElements(GL_TRIANGLES, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
+		break;
+	case 4:
 		glDrawElements(GL_TRIANGLE_STRIP, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
 		break;
 	}
@@ -276,21 +324,37 @@ void renderScene(void)
 		glDrawArrays(GL_LINES, 0, vg.size()); //for co-ordinate grid on XZ direction!
 		
 		if (flags) {
-			drawObject(2, faceVerts, faceIdcs, 2); //for drawing face
+			drawObject(2, faceVerts, faceIdcs, 3); //for drawing face
 		}
 		if(flagc)
 		{
 			glBindVertexArray(VertexArrayId[3]);
 			// draws grid using points generated earlier
-			drawObject(3, controlPoints, controlPntInd, 1);
+			//cout << " Control Point Size " << controlPoints.size() << endl;
+			drawObject(3, controlPoints, controlPntInd, 2);
 
 		 	//for grid lines
 			glPointSize(5.0);
 			glBindVertexArray(VertexArrayId[4]);
 			//for grid points //texture is drwan below in textrue programID
-			//drawObject(4, controlPoints, gridTriangs, 0); 
+			drawObject(4, controlPoints, gridTriangs, 0); 
 			glBindVertexArray(0);
 		}
+		if (BEZIER)
+		{
+			glBindVertexArray(VertexArrayId[10]);
+			// draws Bezier Control Grid using generated control points
+			drawObject(10, bezCtrlVerts, bezCtrlInds, 0);
+
+			if (BEZIER_SURF)
+			{
+				glBindVertexArray(VertexArrayId[11]);
+				// draws Bezier Surface computed
+				drawObject(11, bezSurfVerts, bezSurfInds, 0);
+			}
+		}
+
+
 		if (fvertical)
 		{
 			changecamera(flagcountup);
@@ -327,7 +391,7 @@ void renderScene(void)
 		glUniform1i(textureID, 0);
 		if(flagc){
 		glBindVertexArray(VertexArrayId[4]);
-		drawObject(4, controlPoints, gridTriangs, 3);  //for texture
+		drawObject(4, controlPoints, gridTriangs, 4);  //for texture
 		}
 	}
 	glUseProgram(0);
@@ -480,7 +544,7 @@ void initOpenGL(void)
 	LightIDUniami = glGetUniformLocation(programID, "ambientpower");
 	textureID = glGetUniformLocation(textureprogramID, "faceTexture");
 	createObjects();
-	rayCastingFunc();
+	//rayCastingFunc();
 }
 
 void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, int ObjectId)
@@ -555,6 +619,9 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 	if (action == GLFW_PRESS) {
 		switch (key)
 		{
+		case GLFW_KEY_S:
+			BEZIER_SURF = !BEZIER_SURF;
+			break;
 		case GLFW_KEY_R:
 			flagr = true;
 			break;
@@ -736,19 +803,19 @@ void genPoints()
 	size_t ind = 0;
 	int widthGrid = 11;
 	int heightGrid = 11;
-	genGridTriangs(2*widthGrid, 2*heightGrid, gridTriangs);
+	genGridTriangs(widthGrid, heightGrid, gridTriangs);
 	float s = 0.0, t = 1.0;
 	// Generate points to draw grid
-	for (float j = heightGrid-1; j >= 0; j=j-0.5) {
+	for (float j = heightGrid-1; j >= 0; j=j-1) {
 		cout << "index " << ind << endl;
 		size_t indBegX = ind;
-		for (float i = -widthGrid/2; i <= widthGrid/2; i=i+0.5)
+		for (float i = -widthGrid/2; i <= widthGrid/2; i=i+1)
 		{
 			array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
 			array<float, 3> normal = { 0.0, 0.0, 1.0 };
 			array<float, 4> position = { float(i), float(j), 0.0, 1.0f };
 			array<float, 2> texture = { t,s };
-			s = s + (1/(float(2*widthGrid)-1));
+			s = s + (1/(float(widthGrid)));
 			Vertex tmp;
 			tmp.Position = position;
 			tmp.Color = color;

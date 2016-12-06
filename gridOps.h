@@ -3,14 +3,14 @@
 
 #include <iostream>
 #include <vector>
-#include<array>
+#include <array>
 
 // Function generates grid indices in order for opengl to draw triangle strips
 int genGridTriangs(const int gridX, const int gridY, std::vector<unsigned short>& gridTriangs);
 
 typedef struct Vertex {
 	std::array<float, 4> Position;
-	std:: array<float, 4> Color;
+	std::array<float, 4> Color;
 	std::array<float, 3> Normal;
 	std::array<float, 2> textureCords;
 	void SetPosition(float* coords) {
@@ -30,11 +30,9 @@ typedef struct Vertex {
 		Normal[1] = coords[1];
 		Normal[2] = coords[2];
 	}
-	void setTexture(float* coords)
-	{
+	void setTexture(float* coords) {
 		textureCords[0] = coords[0];
 		textureCords[1] = coords[1];
-
 	}
 }Vertex;
 
