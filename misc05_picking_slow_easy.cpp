@@ -1,46 +1,43 @@
-// Include standard headers
+#include <gridOps.h>
+#include <ray_casting.h>
+
+
+#include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <iostream>
-
-using namespace std;
 #include <vector>
 #include <array>
 #include <stack>   
 #include <sstream>
-// Include GLEW
-#include <GL/glew.h>
-#include<GL/glut.h>
-#include<common/tga.h>
 
-// Include GLFW
+#include <GL/glew.h>
+#include <GL/glut.h>
 #include <glfw3.h>
-// Include GLM
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
-using namespace glm;
-// Include AntTweakBar
-#include <AntTweakBar.h>
 
+using namespace glm;
+#include <AntTweakBar.h>
 #include <common/shader.hpp>
 #include <common/controls.hpp>
 #include <common/objloader.hpp>
 #include <common/vboindexer.hpp>
-#include <misc05_picking/gridOps.h>
-#include <misc05_picking/ray_casting.h>
+#include <common/tga.h>
+
+using namespace std;
 
 const int window_width = 1024, window_height = 768;
-
-
 typedef struct campos {
 	float x, y, z;
 };
+
 bool flagc = false;
 campos camp;
 float LightIDUni;
+
 // function prototypes
 int initWindow(void);
 void initOpenGL(void);
@@ -83,44 +80,33 @@ size_t NumIndices[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 size_t VertexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 size_t IndexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 
-GLuint MatrixID;
-GLuint ModelMatrixID;
-GLuint ViewMatrixID;
-GLuint ProjMatrixID;
-GLuint tModelMatrixID;
-GLuint tViewMatrixID;
-GLuint tProjMatrixID;
-
-GLuint PickingMatrixID;
-GLuint pickingColorID;
-GLuint LightID;
-GLuint texture;
-GLuint textureID;
-long width, height;
-
+GLuint MatrixID, ModelMatrixID, ViewMatrixID, ProjMatrixID, tModelMatrixID,
+	   tViewMatrixID, tProjMatrixID;
+GLuint PickingMatrixID, pickingColorID, LightID, texture, textureID;
 GLint gX = 0.0;
 GLint gZ = 0.0;
 
+long width, height;
+
 //for grid variables
-std::vector<Vertex> vg,vc;
-std::vector<Vertex> controlPoints;
-vector<unsigned short> gridIndices,controlIndices, controlPntInd; //ci fo linesgrid, cpi for points on grid 
+std::vector<Vertex> vg, vc, controlPoints;
+// ci for linesgrid, cpi for points on grid 
+vector<unsigned short> gridIndices, controlIndices, controlPntInd;
+std::vector<unsigned short> gridTriangs;
 
 vector<Vertex> faceVerts;
 vector<GLushort> faceIdcs;
 
 //for camera
-
 bool fvertical = false, fsides = false;
 GLint flagcountup = 0, flagcountsides = 0;
 campos temp = { 20.0, 20.0, 20.0 };
+float LightIDUniami; // What is this variable for?
 
 
-float LightIDUniami;
 void loadObject(char* file, glm::vec4 color,
-	//Vertex * &out_Vertices,
-	vector<Vertex>& outVertices,
-	vector<GLushort>& outIndices, int ObjectId)
+				vector<Vertex>& outVertices,
+				vector<GLushort>& outIndices, int ObjectId)
 {
 	// Read our .obj file
 	std::vector<glm::vec3> vertices;
@@ -155,7 +141,7 @@ void loadObject(char* file, glm::vec4 color,
 	IndexBufferSize[ObjectId] = sizeof(GLushort) * idxCount;
 }
 
-std::vector<unsigned short> gridTriangs;
+
 void createObjects(void)
 {
 	//-- COORDINATE AXES --//
@@ -172,28 +158,27 @@ void createObjects(void)
 	vector<unsigned short> CoordIndices;// = {0, 1, 2, 3, 4, 5};
 	createVAOs(CoordVerts, CoordIndices, 0);
 
-
-
-
 	//-- GRID --//
 	VertexBufferSize[1] = vg.size() * sizeof(vg[0]);
 	createVAOs(vg, gridIndices, 1);
 
 	// ATTN: load your models here
-
 	string baseFile = "modules/aru/aaruBlender.obj";
 	char* fname = (char*)baseFile.c_str();
 	loadObject(fname, glm::vec4(1.0, 0.80, 0.60, 1.0), faceVerts, faceIdcs, 2);
 	createVAOs(faceVerts, faceIdcs, 2);
 
+	//VertexBufferSize[3] = vc.size() * sizeof(vc[0]);
+	//createVAOs(vc, controlIndices, 3);
+	VertexBufferSize[3] = controlPoints.size() * sizeof(controlPoints[0]);
+	createVAOs(controlPoints, controlPntInd, 3);
 
-	VertexBufferSize[3] = vc.size() * sizeof(vc[0]);
-	createVAOs(vc, controlIndices, 3);
+	texture = load_texture_TGA("modules/aru/akalai.tga", 
+							   &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 
-
-	//for texture loading
-	texture = load_texture_TGA("modules/aru/akalai.tga", &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 }
+
+
 int rayCastingFunc()
 {
 	float a[4], b[4], c[4], d[4];
@@ -201,31 +186,29 @@ int rayCastingFunc()
 	float zDirection[] = { 0.0,0.0,1.0,1.0 };
 
 	for (int i = 0; i<controlPoints.size(); i++)
-		{
-			toFloat(controlPoints[i].Position, d);
+	{
+		toFloat(controlPoints[i].Position, d);
 
-			for (int j = 0; j < faceIdcs.size() - 2; j=j+3)
-			{
-			
-      			toFloat(faceVerts[faceIdcs[j]].Position, a);
-				toFloat(faceVerts[faceIdcs[j + 1]].Position, b);
-				toFloat(faceVerts[faceIdcs[j + 2]].Position, c);
-				ray_cast(a, b, c,d, zDirection, OV); //OV- OutputVerts
+		for (int j = 0; j < faceIdcs.size() - 2; j=j+3)
+		{
+      		toFloat(faceVerts[faceIdcs[j]].Position, a);
+			toFloat(faceVerts[faceIdcs[j + 1]].Position, b);
+			toFloat(faceVerts[faceIdcs[j + 2]].Position, c);
+			ray_cast(a, b, c,d, zDirection, OV); //OV- OutputVerts
 			if(OV[0]>0 && OV[1]>0  && OV[2]>0)
-				{			
-				
-					std::array<float, 4> outVerts;  // a temporary variable for geting co ordinates from barycentric
-					outVerts[0] = OV[0] * a[0] + OV[1] * b[1]+ OV[2] * c[0]; 
-					outVerts[1] = OV[0] * a[1] + OV[1] * b[1] + OV[2] * c[1];
-					outVerts[2] = OV[0] * a[2] + OV[1] * b[2] + OV[2] * c[2];
-					outVerts[3] = 1.0;
-					if (controlPoints[i].Position[2] > outVerts[2]) {
-						controlPoints[i].Position[2] = outVerts[2];
-						}
-				
+			{			
+				// a temporary variable for geting co ordinates from barycentric
+				std::array<float, 4> outVerts;  
+				outVerts[0] = OV[0] * a[0] + OV[1] * b[1]+ OV[2] * c[0]; 
+				outVerts[1] = OV[0] * a[1] + OV[1] * b[1] + OV[2] * c[1];
+				outVerts[2] = OV[0] * a[2] + OV[1] * b[2] + OV[2] * c[2];
+				outVerts[3] = 1.0;
+				if (controlPoints[i].Position[2] > outVerts[2])
+				{
+					controlPoints[i].Position[2] = outVerts[2];
+				}
 			}
 		}
-		
 
 	}
 
@@ -233,7 +216,6 @@ int rayCastingFunc()
 	createVAOs(controlPoints, gridTriangs, 4);
 	return 0;
 }
-	
 
 
 int drawObject(const int vertID, const vector<Vertex>& objVerts,
@@ -247,7 +229,7 @@ int drawObject(const int vertID, const vector<Vertex>& objVerts,
 		glDrawElements(GL_POINTS, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
 		break;
 	case 1:
-		glDrawElements(GL_LINES, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
+		glDrawElements(GL_LINE_STRIP, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
 		break;
 	case 2:
 		glDrawElements(GL_TRIANGLES, objIdcs.size(), GL_UNSIGNED_SHORT, (void*)0);
@@ -260,17 +242,15 @@ int drawObject(const int vertID, const vector<Vertex>& objVerts,
 		return 0;
 }
 
-bool flags = true;
 
-
+bool flags = true; // what is this flag for? And why is it in the middle of nowhere?
 
 void renderScene(void)
 {
 	//ATTN: DRAW YOUR SCENE HERE. MODIFY/ADAPT WHERE NECESSARY!
 
-
 	// Dark blue background
-	glClearColor(0.0f, 0.0f, 0.2f, 0.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	// Re-clear the screen for real rendering
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -292,39 +272,33 @@ void renderScene(void)
 		glBindVertexArray(VertexArrayId[0]);	// draw CoordAxes
 		glDrawArrays(GL_LINES, 0, 6);
 		
-		
 		glBindVertexArray(VertexArrayId[1]);
 		glDrawArrays(GL_LINES, 0, vg.size()); //for co-ordinate grid on XZ direction!
 		
 		if (flags) {
 			drawObject(2, faceVerts, faceIdcs, 2); //for drawing face
 		}
-		if(flagc){
+		if(flagc)
+		{
+			glBindVertexArray(VertexArrayId[3]);
+			// draws grid using points generated earlier
+			drawObject(3, controlPoints, controlPntInd, 1);
 
-			
-		glBindVertexArray(VertexArrayId[4]);
-		drawObject(4, controlPoints, controlPntInd, 1);
-		 //for grid lines
-		glPointSize(5.0);
-
-		
-		
-		glBindVertexArray(VertexArrayId[4]);
-		drawObject(4, controlPoints, gridTriangs, 0); //for grid points //texture is drwan below in textrue programID
-		
-
-		glBindVertexArray(0);
-		
+		 	//for grid lines
+			glPointSize(5.0);
+			glBindVertexArray(VertexArrayId[4]);
+			//for grid points //texture is drwan below in textrue programID
+			//drawObject(4, controlPoints, gridTriangs, 0); 
+			glBindVertexArray(0);
 		}
-		
 		if (fvertical)
-			{
-				changecamera(flagcountup);
-			}
-			if (fsides)
-			{
-				changecamera(flagcountsides);
-			}
+		{
+			changecamera(flagcountup);
+		}
+		if (fsides)
+		{
+			changecamera(flagcountsides);
+		}
 		
 		if (flagr)
 		{
@@ -364,6 +338,8 @@ void renderScene(void)
 	glfwSwapBuffers(window);
 	glfwPollEvents();
 }
+
+
 void pickObject(void)
 {
 	// Clear the screen in white
@@ -375,14 +351,11 @@ void pickObject(void)
 		glm::mat4 ModelMatrix = glm::mat4(1.0); // TranslationMatrix * RotationMatrix;
 		glm::mat4 MVP = gProjectionMatrix * gViewMatrix * ModelMatrix;
 
-
 		// Send our transformation to the currently bound shader, in the "MVP" uniform
 		glUniformMatrix4fv(PickingMatrixID, 1, GL_FALSE, &MVP[0][0]);
 
-
-		// ATTN: DRAW YOUR PICKING SCENE HERE. REMEMBER TO SEND IN A DIFFERENT PICKING COLOR FOR EACH OBJECT BEFOREHAND
+// ATTN: DRAW YOUR PICKING SCENE HERE. REMEMBER TO SEND IN A DIFFERENT PICKING COLOR FOR EACH OBJECT BEFOREHAND
 		glBindVertexArray(0);
-
 	}
 	glUseProgram(0);
 	// Wait until all the pending drawing commands are really done.
@@ -497,14 +470,12 @@ void initOpenGL(void)
 	tViewMatrixID = glGetUniformLocation(textureprogramID, "tV");
 	tProjMatrixID = glGetUniformLocation(textureprogramID, "tP");
 
-
 	PickingMatrixID = glGetUniformLocation(pickingProgramID, "MVP");
 	// Get a handle for our "pickingColorID" uniform
 	pickingColorID = glGetUniformLocation(pickingProgramID, "PickingColor");
 	// Get a handle for our "LightPosition" uniform
 	LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
 	
-
 	LightIDUni = glGetUniformLocation(programID, "LightPower");
 	LightIDUniami = glGetUniformLocation(programID, "ambientpower");
 	textureID = glGetUniformLocation(textureprogramID, "faceTexture");
@@ -512,20 +483,18 @@ void initOpenGL(void)
 	rayCastingFunc();
 }
 
-void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, int ObjectId) {
-	
+void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, int ObjectId)
+{
 	GLenum ErrorCheckValue = glGetError();
 	const size_t VertexSize = sizeof(Vertices[0]);
 	const size_t RgbOffset = sizeof(Vertices[0].Position);
 	const size_t Normaloffset = sizeof(Vertices[0].Color) + RgbOffset;
 	const size_t UVoffsset = sizeof(Vertices[0].Normal)+Normaloffset;
 	
-
 	// Create Vertex Array Object
 	glGenVertexArrays(1, &VertexArrayId[ObjectId]);	//
 	glBindVertexArray(VertexArrayId[ObjectId]);		//
-
-													// Create Buffer for vertex data
+	// Create Buffer for vertex data
 	glGenBuffers(1, &VertexBufferId[ObjectId]);
 	glBindBuffer(GL_ARRAY_BUFFER, VertexBufferId[ObjectId]);
 	glBufferData(GL_ARRAY_BUFFER, VertexBufferSize[ObjectId], &Vertices[0], GL_STATIC_DRAW);
@@ -536,7 +505,8 @@ void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, 
 		IndexBufferSize[ObjectId] = sizeof(unsigned short) * Indices.size();
 		glGenBuffers(1, &IndexBufferId[ObjectId]);
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferId[ObjectId]);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, IndexBufferSize[ObjectId], &Indices[0], GL_STATIC_DRAW);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, IndexBufferSize[ObjectId],
+											  &Indices[0], GL_STATIC_DRAW);
 	}
 
 	// Assign vertex attributes
@@ -550,8 +520,7 @@ void createVAOs(std::vector<Vertex>& Vertices, vector<unsigned short>& Indices, 
 	glEnableVertexAttribArray(2);	// Normal
 	glEnableVertexAttribArray(3);	// UV
 
-
-									// Disable our Vertex Buffer Object 
+	// Disable our Vertex Buffer Object 
 	glBindVertexArray(0);
 
 	ErrorCheckValue = glGetError();
@@ -589,74 +558,44 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 		case GLFW_KEY_R:
 			flagr = true;
 			break;
-
 		case GLFW_KEY_F:
 			flags = !flags;
 			break;
 		case GLFW_KEY_C:
 			flagc = !flagc;
 			break;
-
-
 		case GLFW_KEY_UP:
-
 			fvertical = !fvertical;
-			
-
-			
-				flagcountup++;
-				if (flagcountup == 16)
-				{
-					flagcountup = 0;
-				}
-			
-
-
+			flagcountup++;
+			if (flagcountup == 16)
+			{
+				flagcountup = 0;
+			}
 			break;
 		case  GLFW_KEY_RIGHT:
-
 			fsides = !fsides;
-
-
-			
-				flagcountsides++;
-				if (flagcountsides == 16)
-				{
-					flagcountsides = 0;
-				}
-			
-
-
+			flagcountsides++;
+			if (flagcountsides == 16)
+			{
+				flagcountsides = 0;
+			}
 			break;
 		case  GLFW_KEY_LEFT:
-
 			fsides = !fsides;
-
-
-				flagcountsides--;
-				if (flagcountsides == 16)
-				{
-					flagcountsides = 0;
-				}
-			
-
+			flagcountsides--;
+			if (flagcountsides == 16)
+			{
+				flagcountsides = 0;
+			}
 			break;
 		case GLFW_KEY_DOWN:
-
-
 			fvertical = !fvertical;
-
-			
-				flagcountup--;
-				if (flagcountup == 16)
-				{
-					flagcountup = 0;
-				}
-			
-
+			flagcountup--;
+			if (flagcountup == 16)
+			{
+				flagcountup = 0;
+			}
 			break;
-
-
 		default:
 			break;
 		}
@@ -668,7 +607,6 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 		case GLFW_KEY_UP:
 			fvertical = !fvertical;
 			break;
-
 		case GLFW_KEY_DOWN:
 			fvertical = !fvertical;
 			break;
@@ -682,12 +620,15 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 	}
 }
 
+
 static void mouseCallback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 		pickObject();
 	}
 }
+
+
 void drawAxisgrid(void)
 {
 	size_t ind = 0;
@@ -735,15 +676,12 @@ void drawAxisgrid(void)
 		gridIndices.push_back(ind);
 		ind++;
 	}
-
 	cout << "Grid Size " << vg.size() << endl;
-	
 }
+
 
 void drawcontrol(void) // use this function only if required
 {
-	
-
 	size_t ind = 0;
 	// Generate points to draw grid
 	for (int i = 0; i <= 20; i++) {
@@ -791,6 +729,8 @@ void drawcontrol(void) // use this function only if required
 
 	cout << "control Size " << vc.size() << endl;
 }
+
+
 void genPoints()
 {
 	size_t ind = 0;
@@ -800,6 +740,8 @@ void genPoints()
 	float s = 0.0, t = 1.0;
 	// Generate points to draw grid
 	for (float j = heightGrid-1; j >= 0; j=j-0.5) {
+		cout << "index " << ind << endl;
+		size_t indBegX = ind;
 		for (float i = -widthGrid/2; i <= widthGrid/2; i=i+0.5)
 		{
 			array<float, 4> color = { 0.0, 1.0, 0.0, 1.0 };
@@ -814,14 +756,21 @@ void genPoints()
 			tmp.textureCords = texture;
 			controlPoints.push_back(tmp);
 			controlPntInd.push_back(ind);
+			// TODO: add code to push indices of neighboring points to 
+			//       draw rectangular grid
+//			cout << "ind " << ind << "(" << tmp.Position[0] << ", "
+//				 << tmp.Position[1] << ")" << endl;
 			ind++;
 
 		}
+		controlPntInd.push_back(indBegX);
 		s = 0.0;
 		t = t - (1 / (float(2*heightGrid) - 1));
 
 	}
 }
+
+
 void changecamera(int i)
 {
 	float r = 20 * 1.732;
@@ -853,12 +802,8 @@ void changecamera(int i)
 		);
 		temp.x = camp.x;
 		temp.z = camp.z;
-		
-
 	}
-
 }
-
 
 
 int main(void)
@@ -868,24 +813,19 @@ int main(void)
 	if (errorCode != 0)
 		return errorCode;
 	drawAxisgrid();
-	//drawcontrol(); ///not using this one. might require in future //for drawing lines on control points
+	// not using this one. might require in future //for drawing lines on control points
+	//drawcontrol(); 
 	genPoints();
 	
 	// initialize OpenGL pipeline
 	initOpenGL();
-	
-do {
-		
-
+	do
+	{
 		// DRAWING POINTS
 		renderScene();
-
-
 	} // Check if the ESC key was pressed or the window was closed
 	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS &&
-		glfwWindowShouldClose(window) == 0);
-
+			glfwWindowShouldClose(window) == 0);
 	cleanup();
-
 	return 0;
 }

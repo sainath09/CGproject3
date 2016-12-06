@@ -1,4 +1,4 @@
-#include <misc05_picking\gridOps.h>
+#include <gridOps.h>
 
 using namespace std;
 
