@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <array>
+#include <cmath>
 
 // ATTN: USE POINT STRUCTS FOR EASIER COMPUTATIONS
 typedef struct point {
@@ -36,9 +37,9 @@ typedef struct point {
 int packGridIndices(const int gridX, int gridY, std::vector<std::vector<int>>& bezSrcPts);
 // Compute control points for Bezier surface using grid points as starting points
 int compBezCtrlPoints(const std::vector<Point>& gridPts, const int gridX,
-					  const int gridY, const std;:vector<std::vector<int>>& bezIndices,
-					  std::vector<std::vector<Point>>& bezCtrlPts)
+					  const int gridY, const std::vector<std::vector<int>>& bezIndices,
+					  std::vector<std::vector<Point>>& bezCtrlPts);
 // Compute surface points on bi-cubic Bezier surface
-int compBezSurf(const std::vector<Point>& ctrlPts, const int tess_no,
+int compBezSurf(const std::vector<std::vector<Point>>& ctrlPts, const int tess_no,
 					  std::vector<Point>& surfPts);
 #endif

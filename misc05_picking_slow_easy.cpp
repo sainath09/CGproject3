@@ -90,13 +90,15 @@ GLuint programID;
 GLuint pickingProgramID;
 
 const GLuint NumObjects = 11;	// ATTN: THIS NEEDS TO CHANGE AS YOU ADD NEW OBJECTS
-GLuint VertexArrayId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-GLuint VertexBufferId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-GLuint IndexBufferId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
 
-size_t NumIndices[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-size_t VertexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
-size_t IndexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+// ObjID: 11 - Bezier ControlPts
+GLuint VertexArrayId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+GLuint VertexBufferId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+GLuint IndexBufferId[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+
+size_t NumIndices[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+size_t VertexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+size_t IndexBufferSize[NumObjects] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
 
 GLuint MatrixID;
 GLuint ModelMatrixID;
@@ -204,9 +206,6 @@ void createObjects(void)
 
 	VertexBufferSize[4] = controlPoints.size() * sizeof(controlPoints[0]);
 	createVAOs(controlPoints, controlPntInd, 4);
-
-	
-
 }
 
 int drawObject(const int vertID, const vector<Vertex>& objVerts,
@@ -793,8 +792,6 @@ void changecamera(int i)
 		);
 		temp.x = camp.x;
 		temp.z = camp.z;
-		
-
 	}
 
 }
