@@ -3,14 +3,17 @@
 
 #include <iostream>
 #include <vector>
-#include<array>
+#include <array>
+#include <glm/glm.hpp>
+using namespace glm;
 
 // Function generates grid indices in order for opengl to draw triangle strips
 int genGridTriangs(const int gridX, const int gridY, std::vector<unsigned short>& gridTriangs);
+int genGridInd(const int gridX, const int gridY, std::vector<unsigned short>&gridLineInds);
 
 typedef struct Vertex {
 	std::array<float, 4> Position;
-	std:: array<float, 4> Color;
+	std::array<float, 4> Color;
 	std::array<float, 3> Normal;
 	std::array<float, 2> textureCords;
 	void SetPosition(float* coords) {
@@ -30,14 +33,17 @@ typedef struct Vertex {
 		Normal[1] = coords[1];
 		Normal[2] = coords[2];
 	}
-	void setTexture(float* coords)
-	{
+	void setTexture(float* coords) {
 		textureCords[0] = coords[0];
 		textureCords[1] = coords[1];
-
 	}
 }Vertex;
 
 int toFloat(std::array<float,4> & facePoints,float *vert);
+
+bool rayTestPoints(std::vector<Vertex> vert, glm::vec3 start, glm::vec3 end, unsigned int *id, double *proj, double epsilon, int maxRange);
+glm::vec3 findCLosestPoint(glm::vec3 rayStartPos, glm::vec3 rayEndPos, glm::vec3 pointPos, double *proj);
+bool rayTest(glm::vec3 pointPos, glm::vec3 startPos, glm::vec3 endPos, glm::vec3 *closestPoint, double *proj, double epsilon);
+
 
 #endif
