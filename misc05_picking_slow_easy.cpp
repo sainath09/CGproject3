@@ -202,7 +202,7 @@ void createObjects(void)
 
 	Vert2Pt(controlPoints, controlPointConv);
 	compBezCtrlPoints(controlPointConv, gridPtInds, bezCtrlPts);
-	compBezSurf(bezCtrlPts, 5, bezSurfPts);
+	compBezSurf(bezCtrlPts, 10, bezSurfPts);
 	cout << " Bezier surface point count " << bezSurfPts.size() << endl;
 
 	string ctfname = "ctrlpts.csv";

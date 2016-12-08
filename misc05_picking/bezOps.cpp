@@ -34,6 +34,7 @@ int packGridIndices(const int gridX, int gridY, vector<vector<int>>& bezSrcPts)
 
 
 // Compute control points for Bezier surface using grid points as starting points
+// TODO: Make gridWidth programmable - currently hardcoded to 21
 int compBezCtrlPoints(const vector<Point>& gridPts,
 					  const vector<vector<int>>& bezIndices,
 					  vector<vector<Point>>& bezCtrlPts)
@@ -55,52 +56,47 @@ int compBezCtrlPoints(const vector<Point>& gridPts,
 	cout << c00.x << " " << c10.x << " " << c11.x << endl;
 	cout << c00.y << " " << c10.y << " " << c11.y << endl;
 
-	cout << " Idcs size " << idcs.size() << endl;
+	#ifndef DEBUG
 	for (size_t i=0; i<idcs.size(); i++)
 	{
 		cout << idcs[i] << ":  ";
 		cout << gridPts[idcs[i]].x << " " << gridPts[idcs[i]].y << endl;
 	}
+	#endif
 
-	//cout << c00.x << "  " << c00.y << endl;
-	//cout << c10.x << "  " << c10.y << endl;
-	//cout << c11.x << "  " << c11.y << endl;
 	float delX = c10.x - c00.x;
 	float delY = c11.y - c10.y;
 	delX = std::fabs(delX); delY = std::fabs(delY);
 	cout << "Del vals: " << delX << ", " << delY << endl;
+	int ind = 1;
 
 	// Go through each cell of grid to generate ctrl pts for each
 	cout << "GridPts size " << gridPts.size() << endl;
-	for (size_t i=0; i<gridPts.size(); i++)
+	for (size_t i=0; i<gridPts.size()-21; i++)
 	{
 		Point start = gridPts[i];
-		//cout << "[ " << start.x << ",  " << start.y << "] ";
-		// Control Points corresponding to 1 grid
-		for (size_t k=0; k< 3; k++)
-		{
+		if ((i != 0) && (i !=  21) && (i != 42 ))	{
+			if  ((i == 20) || (i == 41) || ((i+1)%21 == 0)) {
+				continue;
+			}
+		}
+		}
+		for (size_t k=0; k< 4; k++)	{
 			vector<Point> ctrlPts(4);
-			for (size_t j=0; j<3; j++)
-			{ 
+			for (size_t j=0; j<4; j++) { 
 				ctrlPts[j] = start;
 				ctrlPts[j].x = start.x + j*delX;
-				//cout << ctrlPts[j].x << ", " << ctrlPts[j].y << "], [";
 			}
-		//	cout << endl;
-		//	cout <<  "Next Line " << endl;
-			start.y = start.y + delY;
 			bezCtrlPts.push_back(ctrlPts);
+			start.y = start.y - delY;
 		}
-		//cout << endl;
 	}
-
 	return 0;
 }
 
 
 // Compute individual Bezier Curve point at t using deCasteljau's algorithm
-int compBezPt(const vector<Point>& ctrlPts, Point& pt, float t)
-{
+int compBezPt(const vector<Point>& ctrlPts, Point& pt, float t) {
 	size_t ctrlPtCnt = ctrlPts.size();
 	vector<Point> interpts;
 	interpts.resize(ctrlPtCnt);
@@ -116,48 +112,32 @@ int compBezPt(const vector<Point>& ctrlPts, Point& pt, float t)
 			interpts[k] = interpts[k]*(1-t)+
 						  interpts[k+1]*t;
 		}
-	
 	}
 	pt = interpts[0];
-
-	#ifdef DEBUG
-	//cout << "Interp  Points: " << endl;
-	//	cout << interpts[2].x << "  " << interpts[2].y << endl;
-	//	cout << interpts[1].x << "  " << interpts[1].y << endl;
-	//cout << endl;
-	#endif
 	return 0;
 }
 
 
 // Compute surface points on bi-cubic Bezier surface
 int compBezSurf(const vector<vector<Point>>& ctrlPts, const int tess_no,
-					  vector<Point>& surfPts)
-{
+					  vector<Point>& surfPts) {
+	// 16 control points corresponding to 1 patch are stored in 1 vector
 	size_t patchCount = ctrlPts.size();
 	size_t ctPtCount = 4; // Curve param: ctrl pt count = curve deg+1
 	float surfRes = 1 / float(tess_no);
 
 	// Go through each patch and compute points recursively
-	for (size_t i=0; i<patchCount; i++)
-	{
-		// There are 16 ctrl points per patch, laid out in a linear fashion
+	for (size_t i=0; i<patchCount; i+=4) {
 		// 0-3, 4-7...12-15
 		vector<Point> curCtrlPts = ctrlPts[i];
 		vector<vector<Point>> interpPts;
 
 		// Interpolate points in horizontal direction
-		for (size_t j=0; j<4; j++)
-		{
-			//vector<vector<Point>>::const_iterator first = ctrlPts.begin();
-			//std::advance(first, j*ctPtCount);
-			//vector<vector<Point>>::const_iterator last = ctrlPts.begin();
-			//std::advance(last j*ctPtCount + 4;
-			vector<Point> horCtrlPts = ctrlPts[i];
+		for (size_t j=0; j<4; j++) {
+			vector<Point> horCtrlPts = ctrlPts[i+j];
 			vector<Point> tmpPts;
 
-			for (int k=0; k<tess_no; k++)
-			{
+			for (int k=0; k<tess_no; k++) {
 				Point bzpt;
 				compBezPt(horCtrlPts, bzpt, surfRes*k);
 				tmpPts.push_back(bzpt);
@@ -166,28 +146,25 @@ int compBezSurf(const vector<vector<Point>>& ctrlPts, const int tess_no,
 		}
 
 		int vertCurvCount = interpPts.size();
-		// Interpolate points in vertical direction
-		for (size_t j=0; j<vertCurvCount; j++)
-		{
-			//vector<Point>::const_iterator first = ctrlPts.begin() + j*ctPtCount;
-			//vector<Point>::const_iterator last = ctrlPts.begin() + j*ctPtCount + 4;
-			vector<Point> verCtrlPts;
-			for (size_t l=0; l<ctPtCount; l++)
-			{
-				verCtrlPts.push_back(interpPts[l][j]);
-			}
 
-			for (int k=0; k<tess_no; k++)
-			{
+		ctPtCount = interpPts[0].size();
+		// Interpolate points in vertical direction
+		for (size_t j=0; j<ctPtCount; j++) {
+			vector<Point> verCtrlPts;
+			for (size_t l=0; l<vertCurvCount; l++) {
+				verCtrlPts.push_back(interpPts[l][j]);
+				cout << "[" << interpPts[l][j].x << ", " << interpPts[l][j].y << "] "  << endl;
+			}
+			cout << endl;
+
+			for (int k=0; k<=tess_no; k++) {
 				Point bzpt;
 				compBezPt(verCtrlPts, bzpt, surfRes*k);
 				// Currently pushing points into surface array only after
 				// interpolation is over in both x,y directions
 				// TODO: May have to revisit to check if this is the right idea
 				surfPts.push_back(bzpt);
-				//cout << surfRes*k  << " " << bzpt.x << " " << bzpt.y << "], [";
 			}	
-			//cout << endl;
 		}
 	}
 	return 0;
