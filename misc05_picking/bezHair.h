@@ -12,6 +12,6 @@
 
 
 
-int genBezierHair(std::vector<Vertex> bezHair, std::vector<unsigned int>  indices, const std::vector<Vertex> controlPoints);
+int genBezierHair(std::vector<Vertex>& bezHair, std::vector<unsigned int> & indices, const std::vector<Vertex> &controlPoints);
 
 #endif

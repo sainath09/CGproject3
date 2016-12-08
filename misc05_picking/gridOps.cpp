@@ -40,20 +40,14 @@ int genGridTriangs(const int gridX, const int gridY, std::vector<unsigned short>
 
 int genGridInd(const int gridX, const int gridY, std::vector<unsigned short>&gridLineInds)
 {
-	for (int i = 0; i <= gridX-1; i++)
-	{
-		for (int j = 0; j < gridY-1; j++)
-		{
+	for (int i = 0; i <= gridX-1; i++){
+		for (int j = 0; j < gridY-1; j++){
 			
-				gridLineInds.push_back(i*gridX+j);
-				gridLineInds.push_back(i*gridX+j + gridX);
-				
-			
+			gridLineInds.push_back(i*gridX+j);
+			gridLineInds.push_back(i*gridX+j + gridX);
 			gridLineInds.push_back(i*gridX + j + gridX + 1);
 			gridLineInds.push_back(i*gridX + j + 1);
 			gridLineInds.push_back(i*gridX + j);
-			
-
 		}
 	}
 	return 0;

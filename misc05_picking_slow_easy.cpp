@@ -38,6 +38,7 @@ typedef struct campos {
 
 bool CONTROLPOINTS = false;
 bool BEZIER=false, BEZIER_CTRL=false, BEZIER_SURF=false;
+bool BEZIER_HAIR = false, BEZIER_CTRL_HAIR = false, BEZIER_SURF_HAIR = false;
 campos camp;
 float LightIDUni;
 
@@ -47,6 +48,7 @@ void initOpenGL(void);
 int drawObject(const int vertID, const vector<Vertex>& objVerts,
 			   const vector<unsigned short>& objIdcs, int triang);
 void createVAOs(vector<Vertex>&, vector<unsigned short>&, int);
+int genBezHair(void);
 void createObjects(void);
 int rayCastingFunc(void);
 void pickObject(void);
@@ -95,9 +97,11 @@ long width, height;
 
 //for grid variables
 std::vector<Vertex> vg, vc, controlPoints, bezCtrlVerts, bezSurfVerts;
+std::vector<Vertex> bezCtrlVertsHair, bezSurfVertsHair;
 // ci for linesgrid, cpi for points on grid 
 vector<unsigned short> gridIndices, controlIndices, controlPntInd,
-						bezCtrlInds,  bezSurfInds;
+						bezCtrlInds, bezSurfInds,
+						bezCtrlIndsHair, bezSurfIndsHair;
 std::vector<unsigned short> gridTriangs;
 std::vector<unsigned short> gridLineInd;
 std::vector<unsigned short> bezTriangulation; //for bezier triangulation
@@ -236,11 +240,54 @@ void createObjects(void)
 	vector<Point> bezPts;
 	Vert2Pt(bezCtrlVerts, bezPts);
 
-	//genBezierHair(bezHair, indicesForHair, controlPoints);
+	//for bezier hair
+	genBezHair();
+	VertexBufferSize[7] = bezCtrlVertsHair.size() * sizeof(bezCtrlVertsHair[0]);
+	createVAOs(bezCtrlVertsHair, bezCtrlIndsHair, 7);
+
+	VertexBufferSize[8] = bezSurfVertsHair.size() * sizeof(bezSurfVertsHair[0]);
+	createVAOs(bezSurfVertsHair, bezSurfIndsHair, 8);
+	
+	//end of hair
+
 	cout << bezPts.size() << endl;
 	string btfname = "bzPts.csv";
 	//write2File(btfname,  bezPts, 44);
 
+}
+int genBezHair()
+{
+	genBezierHair(bezHair, indicesForHair, controlPoints);
+	// Simulate a small grid to generate indices for bezCtrl Pt computation
+	int lenX = 8, lenY = 8;
+	vector<vector<int>> gridPtIndsHair;
+	vector<vector<Point>> bezCtrlPtsHair;
+	vector<Point> controlPointConvHair, bezSurfPtsHair;
+	packGridIndices(lenX, lenY, gridPtIndsHair);
+
+	Vert2Pt(bezHair, controlPointConvHair);
+	compBezCtrlPoints(controlPointConvHair, gridPtIndsHair, bezCtrlPtsHair);
+	compBezSurf(bezCtrlPtsHair, 10, bezSurfPtsHair);
+	cout << " Bezier surface point count " << bezSurfPtsHair.size() << endl;
+
+	string ctfname = "ctrlpts.csv";
+	//write2File(ctfname, controlPointConv, 11);
+	Lin2VertArr(bezCtrlPtsHair, bezCtrlVertsHair, 1);
+	Pt2Vert(bezSurfPtsHair, bezSurfVertsHair, 3);
+	// Compute Indices for bezier control points
+	size_t bezCtrlVertCountHair = bezCtrlVertsHair.size();
+	size_t bezSurfVertCountHair = bezSurfVertsHair.size();
+	
+	for (size_t i = 0; i<bezCtrlVertCountHair; i++)
+	{
+		
+		bezCtrlIndsHair.push_back(i);
+	}
+	for (size_t i = 0; i<bezSurfVertCountHair; i++)
+	{
+		bezSurfIndsHair.push_back(i);
+	}
+	return 0;
 }
 
 
@@ -270,7 +317,7 @@ int rayCastingFunc()
 				//outVerts[3] = 1.0;
 				if (controlPoints[i].Position[2] < outVerts[2])
 				{
-					controlPoints[i].Position[2] = outVerts[2];
+					controlPoints[i].Position[2] = outVerts[2]+0.5;
 				}
 			}
 		}
@@ -371,7 +418,19 @@ void renderScene(void)
 			}
 		}
 		//for bezier hair genertation
-		
+		if (BEZIER_HAIR) {
+			// draws Bezier Control Grid using generated control points
+			if (BEZIER_CTRL_HAIR) {
+				glBindVertexArray(VertexArrayId[7]);
+				drawObject(7, bezCtrlVerts, bezCtrlInds, 0);
+			}
+
+			// draws Bezier Surface computed
+			if (BEZIER_SURF_HAIR) {
+				glBindVertexArray(VertexArrayId[8]);
+				drawObject(8, bezSurfVerts, bezSurfInds, 0);
+			}
+		}
 		
 		if (FILELOAD) {
 			fileRead();
@@ -731,11 +790,21 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			BEZIER = !BEZIER;
 			cout << "Bezier Enabled " << endl;
 			break;
+		case GLFW_KEY_H:
+			BEZIER_HAIR = !BEZIER_HAIR;
+			cout << "Bezier Hair  " << endl;
+			break;
 		case GLFW_KEY_B:
 			BEZIER_CTRL = !BEZIER_CTRL;
 			break;
+		case GLFW_KEY_G:
+			BEZIER_CTRL_HAIR = !BEZIER_CTRL_HAIR;
+			break;
 		case GLFW_KEY_S:
 			BEZIER_SURF = !BEZIER_SURF;
+			break;
+		case GLFW_KEY_J:
+			BEZIER_SURF_HAIR = !BEZIER_SURF_HAIR;
 			break;
 		case GLFW_KEY_R:
 			CAMRESET = true;
