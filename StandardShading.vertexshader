@@ -4,6 +4,7 @@
 layout(location = 0) in vec4 vertexPosition_modelspace;
 layout(location = 1) in vec4 vertexColor;
 layout(location = 2) in vec3 vertexNormal_modelspace;
+layout(location = 3) in vec2 textureCords;
 
 // Output data ; will be interpolated for each fragment.
 out vec4 vs_vertexColor;
@@ -13,6 +14,7 @@ out vec3 EyeDirection_cameraspace;
 out vec3 LightDirection_cameraspace;
 out vec3 LightDirection_cameraspace1;
 out vec3 LightDirection_cameraspace2;
+out vec2 Texturecords;
 
 // Values that stay constant for the whole mesh.
 uniform mat4 M;
@@ -50,5 +52,6 @@ void main(){
 	
 	// UV of the vertex. No special space for this one.
 	vs_vertexColor = vertexColor;
+	Texturecords=textureCords;
 }
 
