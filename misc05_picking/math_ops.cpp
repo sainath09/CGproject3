@@ -1,5 +1,5 @@
 /* File containing functions to do simple reusable math operations */
-#include <misc05_picking\math_ops.h>
+#include <misc05_picking/math_ops.h>
 #define M_PI 3.141516
 #define root3 1.732
 using namespace std;

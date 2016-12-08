@@ -77,10 +77,10 @@ int compBezCtrlPoints(const vector<Point>& gridPts,
 		Point start = gridPts[i];
 		//cout << "[ " << start.x << ",  " << start.y << "] ";
 		// Control Points corresponding to 1 grid
-		for (size_t k=0; k< 4; k++)
+		for (size_t k=0; k< 3; k++)
 		{
 			vector<Point> ctrlPts(4);
-			for (size_t j=0; j<4; j++)
+			for (size_t j=0; j<3; j++)
 			{ 
 				ctrlPts[j] = start;
 				ctrlPts[j].x = start.x + j*delX;

@@ -30,13 +30,13 @@ using namespace glm;
 
 using namespace std;
 
-const int window_width = 1024, window_height = 768;
+const int window_width = 1280, window_height = 1024;
 typedef struct campos {
 	float x, y, z;
 };
 
 bool flagc = false;
-bool BEZIER=false, BEZIER_CTRL=true, BEZIER_SURF=false;
+bool BEZIER=false, BEZIER_CTRL=false, BEZIER_SURF=false;
 campos camp;
 float LightIDUni;
 
@@ -182,19 +182,19 @@ void createObjects(void)
 
 	//VertexBufferSize[3] = vc.size() * sizeof(vc[0]);
 	//createVAOs(vc, controlIndices, 3);
-	VertexBufferSize[3] = controlPoints.size() * sizeof(controlPoints[0]);
-	createVAOs(controlPoints, gridLineInd, 3);
 
 	//texture = load_texture_TGA("modules/sainath/poorna.tga", 
 //							   &width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 
 	texture = load_texture_TGA("modules/aru/aaru.tga",&width, &height, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
 	rayCastingFunc();
+	VertexBufferSize[3] = controlPoints.size() * sizeof(controlPoints[0]);
+	createVAOs(controlPoints, gridLineInd, 3);
 	VertexBufferSize[4] = controlPoints.size() * sizeof(controlPoints[0]);
 	createVAOs(controlPoints, gridTriangs, 4);
 
 	// Simulate a small grid to generate indices for bezCtrl Pt computation
-	int lenX=11, lenY=11;
+	int lenX=21, lenY=21;
 	vector<vector<int>> gridPtInds;
 	vector<vector<Point>> bezCtrlPts;
 	vector<Point> controlPointConv, bezSurfPts;
@@ -353,13 +353,15 @@ void renderScene(void)
 			glBindVertexArray(0);
 		}
 		if (BEZIER)	{
-			glBindVertexArray(VertexArrayId[5]);
 			// draws Bezier Control Grid using generated control points
-			drawObject(5, bezCtrlVerts, bezCtrlInds, 0);
+			if (BEZIER_CTRL) {
+				glBindVertexArray(VertexArrayId[5]);
+				drawObject(5, bezCtrlVerts, bezCtrlInds, 0);
+			}
 
+			// draws Bezier Surface computed
 			if (BEZIER_SURF) {
 				glBindVertexArray(VertexArrayId[6]);
-				// draws Bezier Surface computed
 				drawObject(6, bezSurfVerts, bezSurfInds, 0);
 			}
 		}
@@ -537,6 +539,7 @@ void moveVertex()
 	}
 	// TODO: Shouldn't have to recreate VAO - Figure out how to just update values
 	// of existing VAO
+	createVAOs(controlPoints, gridLineInd, 3);
 	createVAOs(controlPoints, gridTriangs, 4);
 }
 
@@ -710,7 +713,11 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 		{
 		case GLFW_KEY_D:
 			BEZIER = !BEZIER;
-			
+			cout << "Bezier Enabled " << endl;
+			break;
+		case GLFW_KEY_B:
+			BEZIER_CTRL = !BEZIER_CTRL;
+			break;
 		case GLFW_KEY_S:
 			BEZIER_SURF = !BEZIER_SURF;
 			break;
@@ -1082,7 +1089,7 @@ int main(void)
 
 	//for camera rotation
 	mth::createCircPts('y', 10, 30, camHorCirc);
-	mth::createCircPts('z', 0, 30, camVerCirc);
+	mth::createCircPts('x', 0, 30, camVerCirc);
 	
 	// initialize OpenGL pipeline
 	initOpenGL();
