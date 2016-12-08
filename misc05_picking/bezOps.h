@@ -57,4 +57,5 @@ int Vert2Pt(const std::vector<Vertex>& inVertices, std::vector<Point>& outVertic
 int Lin2VertArr(const std::vector<std::vector<Point> >& inVertices,
 					  std::vector<Vertex>& outVertices, int col);
 int write2File(std::string& fname, std::vector<Point>& points, int gridX);
+int genBezTriangles(int noOfPatches, std::vector<unsigned short>bezTriangulation);
 #endif

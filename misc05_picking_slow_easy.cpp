@@ -2,6 +2,7 @@
 #include <misc05_picking/bezOps.h>
 #include <misc05_picking/ray_casting.h>
 #include <misc05_picking/math_ops.h>
+#include <misc05_picking/bezHair.h>
 
 #include <iostream>
 #include <stdio.h>
@@ -35,7 +36,7 @@ typedef struct campos {
 	float x, y, z;
 };
 
-bool flagc = false;
+bool CONTROLPOINTS = false;
 bool BEZIER=false, BEZIER_CTRL=false, BEZIER_SURF=false;
 campos camp;
 float LightIDUni;
@@ -63,7 +64,7 @@ void changecamera(int);
 
 // GLOBAL VARIABLES
 GLFWwindow* window;
-bool flagr = false;
+bool CAMRESET = false;
 glm::mat4 gProjectionMatrix;
 glm::mat4 gViewMatrix;
 
@@ -99,16 +100,19 @@ vector<unsigned short> gridIndices, controlIndices, controlPntInd,
 						bezCtrlInds,  bezSurfInds;
 std::vector<unsigned short> gridTriangs;
 std::vector<unsigned short> gridLineInd;
+std::vector<unsigned short> bezTriangulation; //for bezier triangulation
 std::vector<vec3> camHorCirc, camVerCirc;
+std::vector<Vertex> bezHair;
+std::vector<unsigned int> indicesForHair;
 glm::vec3 camPos; //camera position
 
 vector<Vertex> faceVerts;
 vector<GLushort> faceIdcs;
 
 //for camera
-bool fvertical = false, fsides = false;
-bool falgSave = false, flagLoad = false;
-GLint flagcountup = 0, flagcountsides = 0;
+bool CAMV = false, CAMH = false;
+bool FILESAVE = false, FILELOAD = false;
+GLint CamCountVerti = 0, CamCountHor = 0;
 
 campos temp = { 20.0, 20.0, 20.0 };
 float LightIDUniami; // What is this variable for?
@@ -231,6 +235,8 @@ void createObjects(void)
 	
 	vector<Point> bezPts;
 	Vert2Pt(bezCtrlVerts, bezPts);
+
+	//genBezierHair(bezHair, indicesForHair, controlPoints);
 	cout << bezPts.size() << endl;
 	string btfname = "bzPts.csv";
 	//write2File(btfname,  bezPts, 44);
@@ -302,8 +308,7 @@ int drawObject(const int vertID, const vector<Vertex>& objVerts,
 	return 0;
 }
 
-
-bool flags = true; // what is this flag for? And why is it in the middle of nowhere?
+bool SHOWOBJ = true; // what is this flag for? And why is it in the middle of nowhere?
 
 void renderScene(void)
 {
@@ -335,10 +340,10 @@ void renderScene(void)
 		glBindVertexArray(VertexArrayId[1]);
 		glDrawArrays(GL_LINES, 0, vg.size()); //for co-ordinate grid on XZ direction!
 		
-		if (flags) {
+		if (SHOWOBJ) {
 			drawObject(2, faceVerts, faceIdcs, 3); //for drawing face
 		}
-		if(flagc)
+		if(CONTROLPOINTS)
 		{
 			glBindVertexArray(VertexArrayId[3]);
 			// draws grid using points generated earlier
@@ -352,7 +357,7 @@ void renderScene(void)
 			drawObject(4, controlPoints, gridTriangs, 0); 
 			glBindVertexArray(0);
 		}
-		if (BEZIER)	{
+		if (BEZIER) {
 			// draws Bezier Control Grid using generated control points
 			if (BEZIER_CTRL) {
 				glBindVertexArray(VertexArrayId[5]);
@@ -365,26 +370,35 @@ void renderScene(void)
 				drawObject(6, bezSurfVerts, bezSurfInds, 0);
 			}
 		}
-		if (falgSave) {
+		//for bezier hair genertation
+		
+		
+		if (FILELOAD) {
 			fileRead();
+			FILELOAD = !FILELOAD;
+			createVAOs(controlPoints, gridLineInd, 3);
+			createVAOs(controlPoints, gridTriangs, 4);
+			
 		}
-		if (flagLoad) {
+		if (FILESAVE) {
 			fileWrite();
+			
+			FILESAVE = !FILESAVE;
 		}
 
 		// Update Camera position
 		// TODO: Cleaup - use right names, check reason for object vanishing at
 		// certain camera positions		
-		if (flagr) {
+		if (CAMRESET) {
 			temp = { 20.0, 20.0, 20.0 };
 			camp = temp;
 			gViewMatrix = glm::lookAt(glm::vec3(camp.x, camp.y, camp.z),
 										glm::vec3(0, 0, 0), // and looks at the origin
 										glm::vec3(0, 1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
 			);
-			flagcountup = 0;
-			flagcountsides = 0;
-			flagr = !flagr;
+			CamCountVerti = 0;
+			CamCountHor = 0;
+			CAMRESET = !CAMRESET;
 		}
 		glBindVertexArray(0);
 	}
@@ -397,10 +411,11 @@ void renderScene(void)
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glUniform1i(textureID, 0);
-		if(flagc){
+		if(CONTROLPOINTS){
 		glBindVertexArray(VertexArrayId[4]);
 		drawObject(4, controlPoints, gridTriangs, 4);  //for texture
 		}
+		
 	}
 	glUseProgram(0);
 	// Draw GUI
@@ -541,6 +556,7 @@ void moveVertex()
 	// of existing VAO
 	createVAOs(controlPoints, gridLineInd, 3);
 	createVAOs(controlPoints, gridTriangs, 4);
+	
 }
 
 
@@ -722,56 +738,56 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			BEZIER_SURF = !BEZIER_SURF;
 			break;
 		case GLFW_KEY_R:
-			flagr = true;
+			CAMRESET = true;
 			break;
 		case GLFW_KEY_F:
-			flags = !flags;
+			SHOWOBJ = !SHOWOBJ;
 			break;
 		case GLFW_KEY_C:
-			flagc = !flagc;
+			CONTROLPOINTS = !CONTROLPOINTS;
 			break;
 		case GLFW_KEY_K:
-			falgSave = !falgSave;
+			FILESAVE = !FILESAVE;
 			break;
 		case GLFW_KEY_L:
-			flagLoad = !flagLoad;
+			FILELOAD = !FILELOAD;
 			break;
 		case GLFW_KEY_UP:
 			
 			
-			if (flagcountup <(camVerCirc.size()-1))
+			if (CamCountVerti <(camVerCirc.size()-1))
 			{
-				flagcountup++;
+				CamCountVerti++;
 			}
 			else{
-				flagcountup=0;
+				CamCountVerti =0;
 			}
 			changecamera(key);
 			
 			break;
 		case  GLFW_KEY_RIGHT:
-			if (flagcountsides <(camHorCirc.size()-1))
+			if (CamCountHor <(camHorCirc.size()-1))
 			{
-				flagcountsides++;
+				CamCountHor++;
 			}
 			else{
-				flagcountsides=0;
+				CamCountHor =0;
 			}
 			changecamera(key);
 			break;
 		case  GLFW_KEY_LEFT:
-			if (flagcountsides > 0) {
-					flagcountsides--;
+			if (CamCountHor > 0) {
+				CamCountHor--;
 				} else {
-					flagcountsides = camVerCirc.size()-1;
+				CamCountHor = camVerCirc.size()-1;
 				}
 			changecamera(key);
 			break;
 		case GLFW_KEY_DOWN:
-			if (flagcountup > 0) {
-					flagcountup--;
+			if (CamCountVerti > 0) {
+				CamCountVerti--;
 				} else {
-					flagcountup = camVerCirc.size()-1;
+				CamCountVerti = camVerCirc.size()-1;
 				}
 			changecamera(key);
 			break;
@@ -784,16 +800,16 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 		switch (key)
 		{
 		case GLFW_KEY_UP:
-			fvertical = !fvertical;
+			CAMV = !CAMV;
 			break;
 		case GLFW_KEY_DOWN:
-			fvertical = !fvertical;
+			CAMV = !CAMV;
 			break;
 		case GLFW_KEY_RIGHT:
-			fsides = !fsides;
+			CAMH = !CAMH;
 			break;
 		case GLFW_KEY_LEFT:
-			fsides = !fsides;
+			CAMH = !CAMH;
 			break;
 		}
 	}
@@ -921,8 +937,11 @@ void genPoints()
 	int widthGrid = 21;
 	int heightGrid = 21;
 	genGridTriangs(widthGrid, heightGrid, gridTriangs);
+	//int noOfPatches = (widthGrid - 1)*(heightGrid - 1);
+	//genBezTriangles(noOfPatches , bezTriangulation);
 	genGridInd(widthGrid, heightGrid, gridLineInd);
-	float s = 0.1, t = 0.9;
+
+	float s = 0.05, t = 1.16;
 	// Generate points to draw grid
 	for (float j = heightGrid-1; j >= 0; j=j-1) {
 		//cout << "index " << ind << endl;
@@ -958,16 +977,16 @@ void changecamera(int key)
 	
 		if ((key == GLFW_KEY_LEFT) || (key == GLFW_KEY_RIGHT)) {
 			// Camera matrix
-			gViewMatrix = glm::lookAt(camHorCirc[flagcountsides],	// eye
+			gViewMatrix = glm::lookAt(camHorCirc[CamCountHor],	// eye
 									  glm::vec3(0.0, 0.0, 0.0),	 // center
 									  glm::vec3(0.0, 1.0, 0.0)); // up
-			camPos = camHorCirc[flagcountsides];
+			camPos = camHorCirc[CamCountHor];
 		} else if ((key == GLFW_KEY_UP) || (key == GLFW_KEY_DOWN)) {
 			// Camera matrix
-			gViewMatrix = glm::lookAt(camVerCirc[flagcountup],	// eye
+			gViewMatrix = glm::lookAt(camVerCirc[CamCountVerti],	// eye
 							  		  glm::vec3(0.0, 0.0, 0.0),	 // center
 								   	  glm::vec3(0.0, 1.0, 0.0)); // up
-			camPos = camHorCirc[flagcountup];
+			camPos = camHorCirc[CamCountVerti];
 		}
 	
 }
@@ -1076,7 +1095,7 @@ void fileRead()
 		}
 		fclose(fp);
 		
-		printf("\nReading Completed: Control[0] value : %0.2f\n", controlPoints[0].Position[0]);
+		printf("\nReading Completed:");
 		
 }
 

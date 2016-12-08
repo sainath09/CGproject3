@@ -80,7 +80,7 @@ int compBezCtrlPoints(const vector<Point>& gridPts,
 				continue;
 			}
 		}
-		}
+		
 		for (size_t k=0; k< 4; k++)	{
 			vector<Point> ctrlPts(4);
 			for (size_t j=0; j<4; j++) { 
@@ -93,7 +93,6 @@ int compBezCtrlPoints(const vector<Point>& gridPts,
 	}
 	return 0;
 }
-
 
 // Compute individual Bezier Curve point at t using deCasteljau's algorithm
 int compBezPt(const vector<Point>& ctrlPts, Point& pt, float t) {
@@ -257,5 +256,14 @@ int write2File(string& fname, vector<Point>& points, int gridX)
 		}
 	}
 	coordFile.close();
+	return 0;
+}
+
+int genBezTriangles(int noOfPatches,std::vector<unsigned short>bezTriangulation)
+{
+	for (int i = 0; i < noOfPatches; i++)
+	{
+		genGridInd(5,5, bezTriangulation);		
+	}
 	return 0;
 }
