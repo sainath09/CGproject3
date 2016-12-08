@@ -99,6 +99,8 @@ vector<unsigned short> gridIndices, controlIndices, controlPntInd,
 						bezCtrlInds,  bezSurfInds;
 std::vector<unsigned short> gridTriangs;
 std::vector<unsigned short> gridLineInd;
+std::vector<vec3> camHorCirc, camVerCirc;
+glm::vec3 camPos; //camera position
 
 vector<Vertex> faceVerts;
 vector<GLushort> faceIdcs;
@@ -107,6 +109,7 @@ vector<GLushort> faceIdcs;
 bool fvertical = false, fsides = false;
 bool falgSave = false, flagLoad = false;
 GLint flagcountup = 0, flagcountsides = 0;
+
 campos temp = { 20.0, 20.0, 20.0 };
 float LightIDUniami; // What is this variable for?
 
@@ -313,7 +316,7 @@ void renderScene(void)
 
 	glUseProgram(programID);
 	{
-		glm::vec3 lightPos = glm::vec3(0, 15, -15);
+		glm::vec3 lightPos = glm::vec3(15, 15, 0);
 		//glm::vec3 lightPos1 = glm::vec3(0, 0, 0);
 
 		glm::mat4x4 ModelMatrix = glm::mat4(1.0);
@@ -369,13 +372,7 @@ void renderScene(void)
 
 		// Update Camera position
 		// TODO: Cleaup - use right names, check reason for object vanishing at
-		// certain camera positions
-		if (fvertical) {
-			changecamera(flagcountup);
-		}
-		if (fsides)	{
-			changecamera(flagcountsides);
-		}
+		// certain camera positions		
 		if (flagr) {
 			temp = { 20.0, 20.0, 20.0 };
 			camp = temp;
@@ -733,36 +730,43 @@ static void keyCallback(GLFWwindow* window, int key, int scancode, int action, i
 			flagLoad = !flagLoad;
 			break;
 		case GLFW_KEY_UP:
-			fvertical = !fvertical;
-			flagcountup++;
-			if (flagcountup == 16)
+			
+			
+			if (flagcountup <(camVerCirc.size()-1))
 			{
-				flagcountup = 0;
+				flagcountup++;
 			}
+			else{
+				flagcountup=0;
+			}
+			changecamera(key);
+			
 			break;
 		case  GLFW_KEY_RIGHT:
-			fsides = !fsides;
-			flagcountsides++;
-			if (flagcountsides == 16)
+			if (flagcountsides <(camHorCirc.size()-1))
 			{
-				flagcountsides = 0;
+				flagcountsides++;
 			}
+			else{
+				flagcountsides=0;
+			}
+			changecamera(key);
 			break;
 		case  GLFW_KEY_LEFT:
-			fsides = !fsides;
-			flagcountsides--;
-			if (flagcountsides == 16)
-			{
-				flagcountsides = 0;
-			}
+			if (flagcountsides > 0) {
+					flagcountsides--;
+				} else {
+					flagcountsides = camVerCirc.size()-1;
+				}
+			changecamera(key);
 			break;
 		case GLFW_KEY_DOWN:
-			fvertical = !fvertical;
-			flagcountup--;
-			if (flagcountup == 16)
-			{
-				flagcountup = 0;
-			}
+			if (flagcountup > 0) {
+					flagcountup--;
+				} else {
+					flagcountup = camVerCirc.size()-1;
+				}
+			changecamera(key);
 			break;
 		default:
 			break;
@@ -937,38 +941,23 @@ void genPoints()
 }
 
 
-void changecamera(int i)
+void changecamera(int key)
 {
-	float r = 20 * 1.732;
-	if (fvertical)
-	{
-		//r = temp.y;
-		camp.x = temp.x;
-		camp.z = (sqrt(pow(r, 2) - pow(camp.x, 2))*cosf(2 * 3.1415*(i + 2) / 16));
-		camp.y = (sqrt(pow(r, 2) - pow(camp.x, 2))*sinf(2 * 3.1415*(i + 2) / 16));
-		gViewMatrix = glm::lookAt(
-			glm::vec3(camp.x, camp.y, camp.z),
-			glm::vec3(0, 0, 0), // and looks at the origin
-			glm::vec3(0, 1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
-		);
-		temp.z = camp.z;
-		temp.y = camp.y;
-
-	}
-	else if (fsides)
-	{
-		//r = temp.z;
-		camp.y = temp.y;
-		camp.x = (sqrt(pow(r, 2) - pow(camp.y, 2))*cosf(2 * 3.1415*(i + 2) / 16));
-		camp.z = (sqrt(pow(r, 2) - pow(camp.y, 2))*sinf(2 * 3.1415*(i + 2) / 16));
-		gViewMatrix = glm::lookAt(
-			glm::vec3(camp.x, camp.y, camp.z),
-			glm::vec3(0, 0, 0), // and looks at the origin
-			glm::vec3(0, 1, 0)  // Head is up (set to 0,-1,0 to look upside-down)
-		);
-		temp.x = camp.x;
-		temp.z = camp.z;
-	}
+	
+		if ((key == GLFW_KEY_LEFT) || (key == GLFW_KEY_RIGHT)) {
+			// Camera matrix
+			gViewMatrix = glm::lookAt(camHorCirc[flagcountsides],	// eye
+									  glm::vec3(0.0, 0.0, 0.0),	 // center
+									  glm::vec3(0.0, 1.0, 0.0)); // up
+			camPos = camHorCirc[flagcountsides];
+		} else if ((key == GLFW_KEY_UP) || (key == GLFW_KEY_DOWN)) {
+			// Camera matrix
+			gViewMatrix = glm::lookAt(camVerCirc[flagcountup],	// eye
+							  		  glm::vec3(0.0, 0.0, 0.0),	 // center
+								   	  glm::vec3(0.0, 1.0, 0.0)); // up
+			camPos = camHorCirc[flagcountup];
+		}
+	
 }
 
 
@@ -1090,6 +1079,10 @@ int main(void)
 	// not using this one. might require in future //for drawing lines on control points
 	//drawcontrol(); 
 	genPoints();
+
+	//for camera rotation
+	mth::createCircPts('y', 10, 30, camHorCirc);
+	mth::createCircPts('z', 0, 30, camVerCirc);
 	
 	// initialize OpenGL pipeline
 	initOpenGL();

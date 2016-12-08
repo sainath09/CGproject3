@@ -1,6 +1,7 @@
 /* File containing functions to do simple reusable math operations */
-#include <math_ops.h>
-
+#include <misc05_picking\math_ops.h>
+#define M_PI 3.141516
+#define root3 1.732
 using namespace std;
 using namespace glm;
 
@@ -9,7 +10,7 @@ namespace mth
 int createCircPts(const char axis, const int pos, const int circResln,
 				  std::vector<glm::vec3>& camCircPts)
 {
-	float radius = 13;
+	float radius = 20*root3;
 	float dtheta = 360 / circResln;
 	for (size_t i=1; i<circResln; i++) {
 		float coord1 = radius * cos(i*dtheta*M_PI/180);
