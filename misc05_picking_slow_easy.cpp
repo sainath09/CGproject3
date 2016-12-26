@@ -172,6 +172,7 @@ void createObjects(void)
 		{ { 0.0, 0.0, 0.0, 1.0 },{ 0.0, 0.0, 1.0, 1.0 },{ 0.0, 0.0, 1.0 } },
 		{ { 0.0, 0.0, 10.0, 1.0 },{ 0.0, 0.0, 1.0, 1.0 },{ 0.0, 0.0, 1.0 } },
 	};
+	
 	VertexBufferSize[0] = CoordVerts.size() * sizeof(CoordVerts[0]);
 	vector<unsigned short> CoordIndices;// = {0, 1, 2, 3, 4, 5};
 	createVAOs(CoordVerts, CoordIndices, 0);
@@ -220,15 +221,17 @@ void createObjects(void)
 	// Compute Indices for bezier control points
 	size_t bezCtrlVertCount = bezCtrlVerts.size();
 	size_t bezSurfVertCount = bezSurfVerts.size();
+	int noOfPatchesX = 20, noOfPatchesY = 20;
+	genBezTriangles(noOfPatchesX, noOfPatchesY, bezSurfInds);
 	cout << "BezVertcount " << bezCtrlVertCount << endl;
 	for (size_t i=0; i<bezCtrlVertCount ; i++)
 	{
 		bezCtrlInds.push_back(i);
 	}
-	for (size_t i=0; i<bezSurfVertCount ; i++)
-	{
-		bezSurfInds.push_back(i);
-	}
+	//for (size_t i=0; i<bezSurfVertCount ; i++)
+	//{
+	//	bezSurfInds.push_back(i);
+	//}
 
 
 	VertexBufferSize[5] = bezCtrlVerts.size()*sizeof(bezCtrlVerts[0]);
@@ -404,19 +407,20 @@ void renderScene(void)
 			drawObject(4, controlPoints, gridTriangs, 0); 
 			glBindVertexArray(0);
 		}
-		if (BEZIER) {
-			// draws Bezier Control Grid using generated control points
-			if (BEZIER_CTRL) {
-				glBindVertexArray(VertexArrayId[5]);
-				drawObject(5, bezCtrlVerts, bezCtrlInds, 0);
-			}
+		//draw bezier using texture shadingr
+		//if (BEZIER) {
+		//	// draws Bezier Control Grid using generated control points
+		//	if (BEZIER_CTRL) {
+		//		glBindVertexArray(VertexArrayId[5]);
+		//		drawObject(5, bezCtrlVerts, bezCtrlInds, 0);
+		//	}
 
-			// draws Bezier Surface computed
-			if (BEZIER_SURF) {
-				glBindVertexArray(VertexArrayId[6]);
-				drawObject(6, bezSurfVerts, bezSurfInds, 0);
-			}
-		}
+		//	// draws Bezier Surface computed
+		//	if (BEZIER_SURF) {
+		//		glBindVertexArray(VertexArrayId[6]);
+		//		drawObject(6, bezSurfVerts, bezSurfInds, 0);
+		//	}
+		//}
 		//for bezier hair genertation
 		if (BEZIER_HAIR) {
 			// draws Bezier Control Grid using generated control points
@@ -440,8 +444,7 @@ void renderScene(void)
 			
 		}
 		if (FILESAVE) {
-			fileWrite();
-			
+			fileWrite();			
 			FILESAVE = !FILESAVE;
 		}
 
@@ -473,6 +476,19 @@ void renderScene(void)
 		if(CONTROLPOINTS){
 		glBindVertexArray(VertexArrayId[4]);
 		drawObject(4, controlPoints, gridTriangs, 4);  //for texture
+		}
+		if (BEZIER) {
+			// draws Bezier Control Grid using generated control points
+			if (BEZIER_CTRL) {
+				glBindVertexArray(VertexArrayId[5]);
+				drawObject(5, bezCtrlVerts, bezCtrlInds, 0);
+			}
+
+			// draws Bezier Surface computed
+			if (BEZIER_SURF) {
+				glBindVertexArray(VertexArrayId[6]);
+				drawObject(6, bezSurfVerts, bezSurfInds, 4);
+			}
 		}
 		
 	}
@@ -1007,7 +1023,7 @@ void genPoints()
 	int heightGrid = 21;
 	genGridTriangs(widthGrid, heightGrid, gridTriangs);
 	//int noOfPatches = (widthGrid - 1)*(heightGrid - 1);
-	//genBezTriangles(noOfPatches , bezTriangulation);
+	
 	genGridInd(widthGrid, heightGrid, gridLineInd);
 
 	float s = 0.05, t = 1.16;

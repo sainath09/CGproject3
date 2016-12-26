@@ -11,10 +11,9 @@ int genBezierHair(std::vector<Vertex> &bezHair, std::vector<unsigned int> &indic
 	int index = 0;
 	for (int id = 216; id <= 360;) {
 		for (int j = 1; j <= 8; j++){
-			
 			bezHair.push_back(controlPoints[id]);
-			indices.push_back(index);
 			bezHair[index].Color = color;
+			indices.push_back(index);
 			bezHair[index].Position[2] = 2*rand()/float(RAND_MAX);
 			index++;
 			id++;

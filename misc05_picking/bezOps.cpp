@@ -259,12 +259,18 @@ int write2File(string& fname, vector<Point>& points, int gridX)
 	return 0;
 }
 
-int genBezTriangles(int gridX,int gridY,std::vector<unsigned short>bezTriangulation){
+int genBezTriangles(int gridX,int gridY,std::vector<unsigned short>&bezTriangulation){
 	for (int i = 0; i < gridY-1; i++){
 		for (int j = 0; j < gridX-1; j++) {
-			genGridInd(4, 4, bezTriangulation);
-		}
-			
+			std::vector<unsigned short> tempIndc;
+			genGridTriangs(10, 10, tempIndc);
+			for (int k = 0; k < tempIndc.size(); k++) {
+				tempIndc[k] = ((gridX*i+j) * 100) + tempIndc[k];
+			}
+
+			bezTriangulation.insert(bezTriangulation.end(), tempIndc.begin(),tempIndc.end());
+
+		}	
 	}
 	return 0;
 }

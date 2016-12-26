@@ -12,23 +12,23 @@
 // ATTN: USE POINT STRUCTS FOR EASIER COMPUTATIONS
 typedef struct point {
 	float x, y, z, s, t;
-	point(const float x = 0, const float y = 0, const float z = 0) : x(x), y(y), z(z){};
+	point(const float x = 0, const float y = 0, const float z = 0,const float s=0,const float t=0) : x(x), y(y), z(z),s(s),t(t){};
 	point(const std::array<float, 4>& coords) : x(coords[0]), y(coords[1]), z(coords[2]){};
 	void setTexture(const std::array<float, 2>& coords) {
 		s = coords[0];
 		t = coords[1];
 	}
 	point operator -(const point& a) const {
-		return point(x - a.x, y - a.y, z - a.z);
+		return point(x - a.x, y - a.y, z - a.z,s-a.s,t-a.t);
 	}
 	point operator +(const point& a) const {
-		return point(x + a.x, y + a.y, z + a.z);
+		return point(x + a.x, y + a.y, z + a.z, s + a.s, t + a.t);
 	}
 	point operator *(const float& a) const {
-		return point(x*a, y*a, z*a);
+		return point(x*a, y*a, z*a,s*a,t*a);
 	}
 	point operator /(const float& a) const {
-		return point(x / a, y / a, z / a);
+		return point(x / a, y / a, z / a,s/a,t/a);
 	}
 	std::array<float, 4> toArray() const {
 		std::array<float, 4> outArray = { x, y, z, 1.0f };
@@ -57,5 +57,5 @@ int Vert2Pt(const std::vector<Vertex>& inVertices, std::vector<Point>& outVertic
 int Lin2VertArr(const std::vector<std::vector<Point> >& inVertices,
 					  std::vector<Vertex>& outVertices, int col);
 int write2File(std::string& fname, std::vector<Point>& points, int gridX);
-int genBezTriangles(int gridX,int gridY, std::vector<unsigned short>bezTriangulation);
+int genBezTriangles(int gridX,int gridY, std::vector<unsigned short>&bezTriangulation);
 #endif
